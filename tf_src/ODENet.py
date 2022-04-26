@@ -35,7 +35,7 @@ class ODENet(keras.Model):
 class NonLinODENet(ODENet):
 
     def __init__(self, input_dim=1,  name="NonLinODENet", **kwargs):
-        super(LinODENet, self).__init__(name=name, **kwargs)
+        super(NonLinODENet, self).__init__(name=name, **kwargs)
         self.odeBlock = NonLinearOdeBlock(input_dim=input_dim)
 
 

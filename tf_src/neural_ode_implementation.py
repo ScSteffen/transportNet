@@ -19,11 +19,11 @@ def main():
     # Create Model
     model = NonLinODENet(input_dim=2)
     #model = NonLinearOdeNet(input_dim=2)
+    save_name = 'NonLinearODENet/lotka_volterra'
 
     if train:
         # Load Model
-        save_name = 'linearODENet/lotka_volterra'
-        model.load(save_name)
+        #model.load(save_name)
 
         # Create data from a rea dynamical system
         n_data = 1
@@ -61,7 +61,7 @@ def main():
 def training_loop(model, data, t_f, n_time, save_name):
 
     # config training
-    epochs = 1
+    epochs = 100
     batch = 1
     t_0 = 0.0
     dt = t_f/float(n_time)
