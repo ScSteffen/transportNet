@@ -9,43 +9,16 @@ import tensorflow_probability as tfp
 import numpy as np
 import matplotlib.pyplot as plt
 
-from ODENet import ODENet, create_lotka_volterra_data
-
+from ODENet import LinODENet, create_lotka_volterra_data
 
 def main():
-    # Just an ODE system solve
-
-    t_init, t0, t1 = 0., 0.5, 1.
-    y_init = tf.constant([1., 1.], dtype=tf.float64)
-    A = tf.constant([[-1., -2.], [-3., -4.]], dtype=tf.float64)
-
-    def ode_fn(t, y):
-        return tf.linalg.matvec(A, y)
-
-    results = tfp.math.ode.BDF().solve(ode_fn, t_init, y_init,
-                                       solution_times=[t0, t1])
-    y0 = results.states[0]  # == dot(matrix_exp(A * t0), y_init)
-    y1 = results.states[1]  # == dot(matrix_exp(A * t1), y_init)
-
-    # Now with learnable weight matrices
-    def ode_fn(t, y, A):
-        return tf.linalg.matvec(A, y)
-
-    with tf.GradientTape() as tape:
-        tape.watch(A)
-        results = tfp.math.ode.BDF().solve(ode_fn, t_init, y_init,
-                                           solution_times=[t0, t1],
-                                           constants={'A': A})
-    grads = tape.gradient(results.states, A)  # Fine.
-
-    y0 = results.states[0]  # == dot(matrix_exp(A * t0), y_init)
-    y1 = results.states[1]  # == dot(matrix_exp(A * t1), y_init)
-
+    train_linear_ODENet()
+    
+    #train_nonlinear_ODENet()
     return 0
 
-
-def main2():
-    model = ODENet(input_dim=2)  # Build Model
+def train_linear_ODENet():
+    model = LinODENet(input_dim=2)  # Build Model
 
     optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
     mse_loss_fn = tf.keras.losses.MeanSquaredError()
@@ -61,7 +34,7 @@ def main2():
     plt.show()
 
     # Build dataset
-    split = 2  # (n_data / 10)
+    split = int(n_data / 10)
     train_x = data[:n_data - split, 0, :]
     train_y = data[:n_data - split, -1, :]
 
@@ -69,7 +42,7 @@ def main2():
     test_y = data[- split:, -1, :]
 
     # config training
-    epochs = 10
+    epochs = 25
     batch = 1
     t_0 = 0.0
     t_f = final_time
@@ -85,9 +58,10 @@ def main2():
         for step, batch_train in enumerate(train_dataset):
             with tf.GradientTape() as tape:
                 # tape.watch(modA)
-                out = model(batch_train[0], t_0=t_0, t_f=t_f)
+                results = model(inputs=batch_train[0], t_0=t_0, t_f=t_f)
+                x_f = results.states[0] 
                 # Compute reconstruction loss
-                loss = mse_loss_fn(batch_train[1], out)
+                loss = mse_loss_fn(batch_train[1], x_f)
                 loss += sum(model.losses)  # Add KLD regularization loss
 
             grads = tape.gradient(loss, model.trainable_weights)
@@ -98,7 +72,7 @@ def main2():
             if step % 100 == 0:
                 print("step %d: mean loss = %.4f" % (step, loss_metric.result()))
 
-    test = model(test_x)
+    test = model(test_x,t_0=t_0, t_f=t_f)
     plt.plot(test_x, test.numpy(), '-.')
     plt.plot(test_x, test_y, '--')
     plt.show()
@@ -106,4 +80,4 @@ def main2():
 
 
 if __name__ == '__main__':
-    main2()
+    main()
