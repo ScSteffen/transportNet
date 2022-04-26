@@ -34,7 +34,7 @@ class ODENet(keras.Model):
 
 class NonLinODENet(ODENet):
 
-    def __init__(self, input_dim=1,  name="NonLinODENet", **kwargs):
+    def __init__(self, input_dim=1, name="NonLinODENet", **kwargs):
         super(NonLinODENet, self).__init__(name=name, **kwargs)
         self.odeBlock = NonLinearOdeBlock(input_dim=input_dim)
 
@@ -45,12 +45,14 @@ class LinODENet(ODENet):
         super(LinODENet, self).__init__(name=name, **kwargs)
         self.odeBlock = LinearOdeBlock(input_dim=input_dim)
 
+
 # ---- Layer definitions ----
 
 
 class ODEBlock(keras.layers.Layer):
     A: tf.Tensor
     b: tf.Tensor
+
     # virtual base class
 
     def __init__(self, input_dim=2):
@@ -74,21 +76,20 @@ class ODEBlock(keras.layers.Layer):
         return z
 
     def save(self, folder_name):
-
         a_np = self.A.numpy()
         # print(a_np)
-        np.save(folder_name+"/A.npy", a_np)
+        np.save(folder_name + "/A.npy", a_np)
 
         b_np = self.b.numpy()
-        np.save(folder_name+"/b.npy", b_np)
+        np.save(folder_name + "/b.npy", b_np)
 
         return 0
 
     def load(self, folder_name):
-        a_np = np.load(folder_name+"/A.npy")
+        a_np = np.load(folder_name + "/A.npy")
         self.A = tf.Variable(initial_value=a_np,
                              trainable=True, name="_A", dtype=tf.float32)
-        b_np = np.load(folder_name+"/b.npy")
+        b_np = np.load(folder_name + "/b.npy")
         self.b = tf.Variable(initial_value=b_np,
                              trainable=True, name="_b", dtype=tf.float32)
         return 0
@@ -111,7 +112,7 @@ class NonLinearOdeBlock(ODEBlock):
 
     def ode_fn(self, t, y, A, b):
         # Right Hand side of the Ode that defines the network
-        return tf.keras.activations.relu(tf.linalg.matvec(A, y) + b)
+        return tf.keras.activations.tanh(tf.linalg.matvec(A, y) + b)
 
 
 class NonLinearOdeBlockV2(ODEBlock):
@@ -145,7 +146,7 @@ def create_lotka_volterra_data(n_data: int, n_time: int, final_time: float, dete
 
     def lotka_volterra_ode(t, x):
         res = np.asarray([a * x[0] - b * x[0] * x[1],
-                         c * x[0] * x[1] - d * x[1]])
+                          c * x[0] * x[1] - d * x[1]])
         z = tf.constant(res, dtype=x.dtype, shape=x.shape)
         return z
 

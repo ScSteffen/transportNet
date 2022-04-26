@@ -13,17 +13,16 @@ from ODENet import LinODENet, NonLinODENet, create_lotka_volterra_data, create_p
 
 
 def main():
-
     train = True
     test = False
     # Create Model
     model = NonLinODENet(input_dim=2)
-    #model = NonLinearOdeNet(input_dim=2)
+    # model = NonLinearOdeNet(input_dim=2)
     save_name = 'NonLinearODENet/lotka_volterra'
 
     if train:
         # Load Model
-        #model.load(save_name)
+        # model.load(save_name)
 
         # Create data from a rea dynamical system
         n_data = 1
@@ -32,11 +31,11 @@ def main():
         data = create_lotka_volterra_data(
             n_data=n_data, n_time=n_time, final_time=final_time, deterministic=True)
 
-        #data = create_pendulum_data(
+        # data = create_pendulum_data(
         #    n_data=n_data, n_time=n_time, final_time=final_time)
 
         # Train Model
-        training_loop(model, data, final_time, n_time,save_name)
+        training_loop(model, data, final_time, n_time, save_name)
 
         # Test Model
         test_model(
@@ -50,7 +49,7 @@ def main():
         n_time = 200
         final_time = 5
         data = create_lotka_volterra_data(
-            n_data=n_data, n_time=n_time, final_time=final_time,deterministic=True)
+            n_data=n_data, n_time=n_time, final_time=final_time, deterministic=True)
         # Evaluate model
         test_model(
             model, ic=data[0, 0, :], time_data=data[0, :, :], t_f=final_time, n_time=n_time)
@@ -59,12 +58,11 @@ def main():
 
 
 def training_loop(model, data, t_f, n_time, save_name):
-
     # config training
     epochs = 100
     batch = 1
     t_0 = 0.0
-    dt = t_f/float(n_time)
+    dt = t_f / float(n_time)
 
     optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
     mse_loss_fn = tf.keras.losses.MeanSquaredError()
@@ -84,9 +82,13 @@ def training_loop(model, data, t_f, n_time, save_name):
         for step, batch_train in enumerate(train_dataset):
             with tf.GradientTape() as tape:
                 # tape.watch(modA)
+                t_curr = step * dt
+                t_p1 = (step + 1) * dt
                 results = model(
-                    inputs=batch_train[0], t_0=step*dt, t_f=(step+1)*dt)
-                x_f = results.states[0]
+                    inputs=batch_train[0], t_0=t_curr, t_f=t_p1)
+                x_f = results.states
+                states = results.states.numpy()
+                times = results.times.numpy()
                 # Compute reconstruction loss
                 loss = mse_loss_fn(batch_train[1], x_f)
                 loss += sum(model.losses)  # Add KLD regularization loss
@@ -97,12 +99,12 @@ def training_loop(model, data, t_f, n_time, save_name):
             loss_metric(loss)
 
             if step % 10 == 0:
-                print("Training at t=" + str(step*dt) + " with x(t)=" +
+                print("Training at t=" + str(t_curr) + " with x(t)=" +
                       str(batch_train[0].numpy()) + " and x(t+1)=" + str(batch_train[1].numpy()))
                 print("Prediction at this step: " + str(x_f.numpy()))
                 print("step %d: mean loss = %.4f" %
                       (step, loss_metric.result()))
-             # Save Model
+            # Save Model
             model.save(save_name)
 
     return 0
@@ -116,12 +118,12 @@ def test_model(model, ic, time_data, t_f, n_time):
 
     t = np.linspace(0, t_f, n_time)
     results = model.predict(inputs=tf.constant(
-        ic, dtype=tf.float32),  t_0=0, t_f=t_f, n_time=n_time)
+        ic, dtype=tf.float32), t_0=0, t_f=t_f, n_time=n_time)
 
-    x_time_series = results.states.numpy()
-    print(x_time_series.shape)
+    pred_states = results.states.numpy()
+    times = results.times.numpy()
 
-    plt.plot(t, x_time_series, '-.')
+    plt.plot(times, pred_states, '-.')
     plt.plot(t, time_data, '--')
     plt.savefig("result.png")
     return 0
