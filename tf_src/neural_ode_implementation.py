@@ -4,76 +4,104 @@ Date: 29.03.2022
 """
 
 import tensorflow as tf
-from tensorflow import keras
+import tensorflow_probability as tfp
 
 import numpy as np
 import matplotlib.pyplot as plt
 
+from ODENet import ODENet, create_lotka_volterra_data
+
 
 def main():
-    print(" --- Starting model construction ---")
+    # Just an ODE system solve
 
-    model = create_transport_resnet(input_dim=1, output_dim=1, x_steps=10, t_steps=5)
+    t_init, t0, t1 = 0., 0.5, 1.
+    y_init = tf.constant([1., 1.], dtype=tf.float64)
+    A = tf.constant([[-1., -2.], [-3., -4.]], dtype=tf.float64)
 
-    print("--- Start model training ---")
+    def ode_fn(t, y):
+        return tf.linalg.matvec(A, y)
 
-    x = np.linspace(-5.0, 5.0, 5000)
-    y = np.sin(x)
+    results = tfp.math.ode.BDF().solve(ode_fn, t_init, y_init,
+                                       solution_times=[t0, t1])
+    y0 = results.states[0]  # == dot(matrix_exp(A * t0), y_init)
+    y1 = results.states[1]  # == dot(matrix_exp(A * t1), y_init)
 
-    model.fit(x=x[::2], y=y[::2], batch_size=64, epochs=1000, verbose=2)
-    model.save("model")
+    # Now with learnable weight matrices
+    def ode_fn(t, y, A):
+        return tf.linalg.matvec(A, y)
 
-    pred = model(x)
+    with tf.GradientTape() as tape:
+        tape.watch(A)
+        results = tfp.math.ode.BDF().solve(ode_fn, t_init, y_init,
+                                           solution_times=[t0, t1],
+                                           constants={'A': A})
+    grads = tape.gradient(results.states, A)  # Fine.
 
-    plt.plot(x, y, '-')
-    plt.plot(x, pred, '--')
-    plt.savefig("result.png")
+    y0 = results.states[0]  # == dot(matrix_exp(A * t0), y_init)
+    y1 = results.states[1]  # == dot(matrix_exp(A * t1), y_init)
 
     return 0
 
 
-def create_transport_resnet(input_dim, output_dim, x_steps, t_steps):
-    # Weight initializer
-    initializer = keras.initializers.LecunNormal()
-    # Weight regularizer
-    l2_regularizer = tf.keras.regularizers.L2(l2=0.0001)  # L1 + L2 penalties
+def main2():
+    model = ODENet(input_dim=2)  # Build Model
 
-    def residual_block(x: tf.Tensor, layer_dim: int = 10, layer_idx: int = 0) -> tf.Tensor:
-        # ResNet architecture by https://arxiv.org/abs/1603.05027
+    optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
+    mse_loss_fn = tf.keras.losses.MeanSquaredError()
 
-        # 1) activation
-        y = keras.activations.softplus(x)
-        # 2) layer without activation
-        y = keras.layers.Dense(layer_dim, activation=None, kernel_initializer=initializer,
-                               bias_initializer=initializer, kernel_regularizer=l2_regularizer,
-                               bias_regularizer=l2_regularizer, name="block_" + str(layer_idx) + "_layer_0")(y)
-        # 3) add skip connection
-        out = keras.layers.Add()([x, y])
-        return out
+    loss_metric = tf.keras.metrics.Mean()
 
-    input_ = keras.Input(shape=(input_dim,))
-    hidden = input_
-    # build resnet blocks
-    for idx in range(0, t_steps):
-        hidden = residual_block(hidden, layer_dim=x_steps, layer_idx=idx)
+    # Create data from a rea dynamical system
+    n_data = 10
+    n_time = 100
+    final_time = 20
+    data = create_lotka_volterra_data(n_data=n_data, n_time=n_time, final_time=final_time)
+    plt.plot(np.linspace(0, final_time, n_time), data[0, :, :])
+    plt.show()
 
-    output_ = keras.layers.Dense(output_dim, activation=None, kernel_initializer=initializer, name="dense_output",
-                                 kernel_regularizer=l2_regularizer, bias_initializer='zeros')(hidden)
+    # Build dataset
+    split = 2  # (n_data / 10)
+    train_x = data[:n_data - split, 0, :]
+    train_y = data[:n_data - split, -1, :]
 
-    core_model = keras.Model(inputs=[input_], outputs=[output_], name="TransportNet")
-    print("The core model overview")
-    core_model.summary()
-    # build graph
-    batch_size: int = 3  # dummy entry
-    core_model.build(input_shape=(batch_size, input_dim))
+    test_x = data[- split:, -1, :]
+    test_y = data[- split:, -1, :]
 
-    core_model.compile(
-        loss={'dense_output': tf.keras.losses.MeanSquaredError()},
-        loss_weights={'dense_output': 1}, optimizer=keras.optimizers.Adam(),
-        metrics=['mean_absolute_error', 'mean_squared_error'])
+    # config training
+    epochs = 10
+    batch = 1
 
-    return core_model
+    train_dataset = tf.data.Dataset.from_tensor_slices((train_x, train_y))
+    train_dataset = train_dataset.shuffle(buffer_size=1024).batch(batch)
+
+    # Iterate over epochs.
+    for epoch in range(epochs):
+        print("Start of epoch %d" % (epoch,))
+
+        # Iterate over the batches of the dataset.
+        for step, batch_train in enumerate(train_dataset):
+            with tf.GradientTape() as tape:
+                # tape.watch(modA)
+                out = model(batch_train[0])
+                # Compute reconstruction loss
+                loss = mse_loss_fn(batch_train[1], out)
+                loss += sum(model.losses)  # Add KLD regularization loss
+
+            grads = tape.gradient(loss, model.trainable_weights)
+            optimizer.apply_gradients(zip(grads, model.trainable_weights))
+
+            loss_metric(loss)
+
+            if step % 100 == 0:
+                print("step %d: mean loss = %.4f" % (step, loss_metric.result()))
+
+    test = model(test_x)
+    plt.plot(test_x, test.numpy(), '-.')
+    plt.plot(test_x, test_y, '--')
+    plt.show()
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    main2()
