@@ -71,6 +71,8 @@ def main2():
     # config training
     epochs = 10
     batch = 1
+    t_0 = 0.0
+    t_f = final_time
 
     train_dataset = tf.data.Dataset.from_tensor_slices((train_x, train_y))
     train_dataset = train_dataset.shuffle(buffer_size=1024).batch(batch)
@@ -83,7 +85,7 @@ def main2():
         for step, batch_train in enumerate(train_dataset):
             with tf.GradientTape() as tape:
                 # tape.watch(modA)
-                out = model(batch_train[0])
+                out = model(batch_train[0], t_0=t_0, t_f=t_f)
                 # Compute reconstruction loss
                 loss = mse_loss_fn(batch_train[1], out)
                 loss += sum(model.losses)  # Add KLD regularization loss

@@ -34,10 +34,8 @@ class OdeBlock(keras.layers.Layer):
         self.A = self.add_weight(shape=(input_dim, input_dim), initializer="random_normal", name="_A", trainable=True)
         self.b = self.add_weight(shape=(input_dim,), initializer="zeros", name="_b", trainable=True)
 
-    def call(self, inputs):
-        t0 = 0.
-        t1 = 1.0
-        z = tfp.math.ode.BDF().solve(self.ode_fn, t0, inputs, solution_times=[t1],
+    def call(self, inputs, t_0, t_f):
+        z = tfp.math.ode.BDF().solve(self.ode_fn, t_0, inputs, solution_times=[t_f],
                                      constants={'A': self.A, 'b': self.b})
         return z
 
