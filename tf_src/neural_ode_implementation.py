@@ -16,8 +16,10 @@ def main():
     train = True
     test = False
     # Create Model
-    model = NonLinODENet(input_dim=2)
-    # model = NonLinearOdeNet(input_dim=2)
+    #model = LinODENet(input_dim=2)
+    model = NonLinODENet(input_dim=2,units=40)
+    #y = tf.constant([1,1],shape=(1,2),dtype=tf.float32)
+    #test =model.odeBlock.ode_fn(t=0,y=y)
     save_name = 'NonLinearODENet/lotka_volterra'
 
     if train:
@@ -26,7 +28,7 @@ def main():
 
         # Create data from a rea dynamical system
         n_data = 1
-        n_time = 20
+        n_time = 40
         final_time = 10
         data = create_lotka_volterra_data(
             n_data=n_data, n_time=n_time, final_time=final_time, deterministic=True)
@@ -43,11 +45,11 @@ def main():
 
     if test:
         # Load Model
-        model.load('linearODENet/lotka_volterra')
+        model.load(save_name)
         # Create data from a rea dynamical system
         n_data = 1
-        n_time = 200
-        final_time = 5
+        n_time = 100
+        final_time = 20
         data = create_lotka_volterra_data(
             n_data=n_data, n_time=n_time, final_time=final_time, deterministic=True)
         # Evaluate model
@@ -114,18 +116,27 @@ def training_loop(model, data, t_f, n_time, save_name):
 
 
 def test_model(model, ic, time_data, t_f, n_time):
-    print(time_data.shape)
 
     t = np.linspace(0, t_f, n_time)
     results = model.predict(inputs=tf.constant(
-        ic, dtype=tf.float32), t_0=0, t_f=t_f, n_time=n_time)
+        ic, dtype=tf.float32), t_0=0, times =t)
+    
+    dt = t_f / float(n_time)
+    pred_states = np.zeros(shape=(n_time,2))
+    pred_states[0] = time_data[0]
+    for i in range(0,n_time-1):
+        t_curr = i * dt
+        t_p1 = (i + 1) * dt
+        results = model( inputs=time_data[i], t_0=t_curr, t_f=t_p1)
+        x_f = results.states
+        pred_states[i+1,:]
 
     pred_states = results.states.numpy()
     times = results.times.numpy()
 
     plt.plot(times, pred_states, '-.')
     plt.plot(t, time_data, '--')
-    plt.savefig("result.png")
+    plt.savefig("result2.png")
     return 0
 
 
