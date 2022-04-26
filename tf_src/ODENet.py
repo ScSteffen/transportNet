@@ -34,9 +34,9 @@ class ODENet(keras.Model):
 
 class NonLinODENet(ODENet):
 
-    def __init__(self, input_dim=2,units=40, name="NonLinODENet", **kwargs):
+    def __init__(self, input_dim=2, units=40, name="NonLinODENet", **kwargs):
         super(NonLinODENet, self).__init__(name=name, **kwargs)
-        self.odeBlock = NonLinearOdeBlock(input_dim=input_dim,units=40)
+        self.odeBlock = NonLinearOdeBlock(input_dim=input_dim, units=40)
 
 
 class LinODENet(ODENet):
@@ -69,7 +69,7 @@ class ODEBlock(keras.layers.Layer):
         return z
 
     def predict(self, inputs, t_0, times):
-        #times = np.linspace(t_0, t_f, n_time).tolist()
+        # times = np.linspace(t_0, t_f, n_time).tolist()
 
         z = tfp.math.ode.BDF().solve(self.ode_fn, t_0, inputs, solution_times=times,
                                      constants={'A': self.A, 'b': self.b})
@@ -110,34 +110,32 @@ class NonLinearOdeBlock(keras.layers.Layer):
     def __init__(self, input_dim=2, units=40):
         super(NonLinearOdeBlock, self).__init__()
 
-        self.A1 = self.add_weight(shape=(units,input_dim), initializer="random_normal",
-                                 trainable=True, )
+        self.A1 = self.add_weight(shape=(units, input_dim), initializer="random_normal",
+                                  trainable=True, )
         self.b1 = self.add_weight(shape=(units,), initializer="random_normal", trainable=True)
-        self.A2 = self.add_weight(shape=(input_dim,units), initializer="random_normal",
-                                 trainable=True, )
+        self.A2 = self.add_weight(shape=(input_dim, units), initializer="random_normal",
+                                  trainable=True, )
         self.b2 = self.add_weight(shape=(input_dim,), initializer="random_normal", trainable=True)
-        
-
 
     def call(self, inputs, t_0, t_f):
         z = tfp.math.ode.BDF().solve(self.ode_fn, t_0, inputs, solution_times=[t_f],
-                                     constants={'A1': self.A1, 'b1': self.b1,'A2': self.A2, 'b2': self.b2})
+                                     constants={'A1': self.A1, 'b1': self.b1, 'A2': self.A2, 'b2': self.b2})
         return z
 
     def predict(self, inputs, t_0, times):
-        #times = np.linspace(t_0, t_f, n_time).tolist()
+        # times = np.linspace(t_0, t_f, n_time).tolist()
 
         z = tfp.math.ode.BDF().solve(self.ode_fn, t_0, inputs, solution_times=times,
-                                     constants={'A1': self.A1, 'b1': self.b1,'A2': self.A2, 'b2': self.b2})
+                                     constants={'A1': self.A1, 'b1': self.b1, 'A2': self.A2, 'b2': self.b2})
         return z
-    
-    def ode_fn(self, t, y, A1,b1,A2,b2):
+
+    def ode_fn(self, t, y, A1, b1, A2, b2):
         # Right Hand side of the Ode that defines the network
         z = tf.linalg.matvec(A1, y) + b1
         z = tf.keras.activations.tanh(z)
-        z = tf.linalg.matvec(A2, y) + b2
+        z = tf.linalg.matvec(A2, z) + b2
         return z
-    
+
     def save(self, folder_name):
         a_np = self.A1.numpy()
         # print(a_np)
@@ -145,32 +143,31 @@ class NonLinearOdeBlock(keras.layers.Layer):
 
         b_np = self.b1.numpy()
         np.save(folder_name + "/b1.npy", b_np)
-        
+
         a_np = self.A2.numpy()
         np.save(folder_name + "/A2.npy", a_np)
 
         b_np = self.b2.numpy()
         np.save(folder_name + "/b2.npy", b_np)
 
-
         return 0
 
     def load(self, folder_name):
         a_np = np.load(folder_name + "/A1.npy")
         self.A1 = tf.Variable(initial_value=a_np,
-                             trainable=True, name="_A1", dtype=tf.float32)
+                              trainable=True, name="_A1", dtype=tf.float32)
         b_np = np.load(folder_name + "/b1.npy")
         self.b1 = tf.Variable(initial_value=b_np,
-                             trainable=True, name="_b1", dtype=tf.float32)
+                              trainable=True, name="_b1", dtype=tf.float32)
         a_np = np.load(folder_name + "/A2.npy")
         self.A2 = tf.Variable(initial_value=a_np,
-                             trainable=True, name="_A2", dtype=tf.float32)
+                              trainable=True, name="_A2", dtype=tf.float32)
         b_np = np.load(folder_name + "/b2.npy")
         self.b2 = tf.Variable(initial_value=b_np,
-                             trainable=True, name="_b2", dtype=tf.float32)
+                              trainable=True, name="_b2", dtype=tf.float32)
         return 0
 
-    
+
 class NonLinearOdeBlockV2(ODEBlock):
 
     def __init__(self, input_dim=2):
@@ -179,6 +176,7 @@ class NonLinearOdeBlockV2(ODEBlock):
     def ode_fn(self, t, y, A, b):
         # Right Hand side of the Ode that defines the network
         return tf.linalg.matvec(A, tf.keras.activations.relu(y)) + b
+
 
 class Linear(keras.layers.Layer):
     def __init__(self, units=32, **kwargs):
@@ -197,6 +195,7 @@ class Linear(keras.layers.Layer):
         config = super(Linear, self).get_config()
         config.update({"units": self.units})
         return config
+
 
 def create_lotka_volterra_data(n_data: int, n_time: int, final_time: float, deterministic=True) -> np.ndarray:
     """
