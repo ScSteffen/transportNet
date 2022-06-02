@@ -16,10 +16,10 @@ def main():
     train = True
     test = False
     # Create Model
-    #model = LinODENet(input_dim=2)
-    model = NonLinODENet(input_dim=2,units=40)
-    #y = tf.constant([1,1],shape=(1,2),dtype=tf.float32)
-    #test =model.odeBlock.ode_fn(t=0,y=y)
+    # model = LinODENet(input_dim=2)
+    model = NonLinODENet(input_dim=2, units=40)
+    # y = tf.constant([1,1],shape=(1,2),dtype=tf.float32)
+    # test =model.odeBlock.ode_fn(t=0,y=y)
     save_name = 'NonLinearODENet/lotka_volterra'
 
     if train:
@@ -71,8 +71,11 @@ def training_loop(model, data, t_f, n_time, save_name):
 
     loss_metric = tf.keras.metrics.Mean()
 
-    train_x = data[0, :-1, :]
-    train_y = data[0, 1:, :]  # label is the solution at the next time step
+    train_x = data[0, :-10, :]
+    train_y = np.zeros(shape=(n_time - 10, 10, 2))
+
+    for i in range(n_time - 10):
+        train_y[i] = data[0, i:i + 10, :]
 
     train_dataset = tf.data.Dataset.from_tensor_slices((train_x, train_y))
 
@@ -116,20 +119,19 @@ def training_loop(model, data, t_f, n_time, save_name):
 
 
 def test_model(model, ic, time_data, t_f, n_time):
-
     t = np.linspace(0, t_f, n_time)
     results = model.predict(inputs=tf.constant(
-        ic, dtype=tf.float32), t_0=0, times =t)
-    
+        ic, dtype=tf.float32), t_0=0, times=t)
+
     dt = t_f / float(n_time)
-    pred_states = np.zeros(shape=(n_time,2))
+    pred_states = np.zeros(shape=(n_time, 2))
     pred_states[0] = time_data[0]
-    for i in range(0,n_time-1):
+    for i in range(0, n_time - 1):
         t_curr = i * dt
         t_p1 = (i + 1) * dt
-        results = model( inputs=time_data[i], t_0=t_curr, t_f=t_p1)
+        results = model(inputs=time_data[i], t_0=t_curr, t_f=t_p1)
         x_f = results.states
-        pred_states[i+1,:]
+        pred_states[i + 1, :]
 
     pred_states = results.states.numpy()
     times = results.times.numpy()
