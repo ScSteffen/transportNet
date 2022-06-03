@@ -92,15 +92,19 @@ def train(units, epsilon, batch_size, load_model, epochs):
         for step, batch_train in enumerate(train_dataset):
 
             if batch_train[0].shape[0] != batch_size:
+    
                 bx = batch_train[0]
                 by = batch_train[1]
+
                 z = bx.shape[0]
                 while z < batch_size:
                     bx = tf.concat([bx, bx], axis=0)
                     by = tf.concat([by, by], axis=0)
 
-                batch_train[1] = by[:batch_size, :]
-                batch_train[0] = bx[:batch_size, :]
+                    z = bx.shape[0]
+                batch_train = (bx[:batch_size, :],by[:batch_size])
+
+
             # 1)  linear step
             with tf.GradientTape() as tape:
                 out = model(batch_train[0], training=True)
@@ -123,7 +127,7 @@ def train(units, epsilon, batch_size, load_model, epochs):
 
             loss_value = loss_metric.result().numpy()
             acc_value = acc_metric.result().numpy()
-            if step % 100 == 0:
+            if step %100 ==0:
                 print("step %d: mean loss  = %.4f" % (step, loss_value))
                 print("Accuracy: " + str(acc_value))
 
@@ -135,9 +139,23 @@ def train(units, epsilon, batch_size, load_model, epochs):
         print("---validation---")
         # Validate model
         for step, batch_val in enumerate(val_dataset):
+            if batch_val[0].shape[0] != batch_size:
+    
+                bx = batch_val[0]
+                by = batch_val[1]
+
+                z = bx.shape[0]
+                while z < batch_size:
+                    bx = tf.concat([bx, bx], axis=0)
+                    by = tf.concat([by, by], axis=0)
+
+                    z = bx.shape[0]
+                batch_val = (bx[:batch_size, :],by[:batch_size])
+
+            print(step)
             out = model(batch_val[0], training=False)
             out = tf.keras.activations.softmax(out)
-            loss = loss_fn(y_val, out)
+            loss = loss_fn(batch_val[1], out)
             loss_metric.update_state(loss)
             prediction = tf.math.argmax(out, 1)
             acc_metric.update_state(prediction, batch_val[1])
@@ -161,9 +179,22 @@ def train(units, epsilon, batch_size, load_model, epochs):
 
         # Test model
         for step, batch_test in enumerate(test_dataset):
+            if batch_test[0].shape[0] != batch_size:
+    
+                bx = batch_test[0]
+                by = batch_test[1]
+
+                z = bx.shape[0]
+                while z < batch_size:
+                    bx = tf.concat([bx, bx], axis=0)
+                    by = tf.concat([by, by], axis=0)
+
+                    z = bx.shape[0]
+                batch_test = (bx[:batch_size, :],by[:batch_size])
+
             out = model(batch_test[0], step=0, training=False)
             out = tf.keras.activations.softmax(out)
-            loss = loss_fn(y_val, out)
+            loss = loss_fn(batch_test[1], out)
             loss_metric.update_state(loss)
             prediction = tf.math.argmax(out, 1)
             acc_metric.update_state(prediction, batch_test[1])
