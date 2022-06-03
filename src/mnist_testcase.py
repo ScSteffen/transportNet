@@ -58,11 +58,11 @@ def train(units, epsilon, batch_size, load_model, epochs):
 
     # Prepare the validation dataset.
     val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val))
-    val_dataset = train_dataset.shuffle(buffer_size=1024).batch(batch_size)
+    val_dataset = val_dataset.shuffle(buffer_size=1024).batch(batch_size)
 
     # Prepare the test dataset.
     test_dataset = tf.data.Dataset.from_tensor_slices((x_test, y_test))
-    test_dataset = train_dataset.shuffle(buffer_size=1024).batch(batch_size)
+    test_dataset = test_dataset.shuffle(buffer_size=1024).batch(batch_size)
 
     # Create logger
     log_file, file_name = create_csv_logger_cb(folder_name=filename)
@@ -92,7 +92,7 @@ def train(units, epsilon, batch_size, load_model, epochs):
         for step, batch_train in enumerate(train_dataset):
 
             if batch_train[0].shape[0] != batch_size:
-    
+
                 bx = batch_train[0]
                 by = batch_train[1]
 
@@ -102,8 +102,7 @@ def train(units, epsilon, batch_size, load_model, epochs):
                     by = tf.concat([by, by], axis=0)
 
                     z = bx.shape[0]
-                batch_train = (bx[:batch_size, :],by[:batch_size])
-
+                batch_train = (bx[:batch_size, :], by[:batch_size])
 
             # 1)  linear step
             with tf.GradientTape() as tape:
@@ -127,7 +126,7 @@ def train(units, epsilon, batch_size, load_model, epochs):
 
             loss_value = loss_metric.result().numpy()
             acc_value = acc_metric.result().numpy()
-            if step %100 ==0:
+            if step % 100 == 0:
                 print("step %d: mean loss  = %.4f" % (step, loss_value))
                 print("Accuracy: " + str(acc_value))
 
@@ -140,7 +139,7 @@ def train(units, epsilon, batch_size, load_model, epochs):
         # Validate model
         for step, batch_val in enumerate(val_dataset):
             if batch_val[0].shape[0] != batch_size:
-    
+
                 bx = batch_val[0]
                 by = batch_val[1]
 
@@ -150,7 +149,7 @@ def train(units, epsilon, batch_size, load_model, epochs):
                     by = tf.concat([by, by], axis=0)
 
                     z = bx.shape[0]
-                batch_val = (bx[:batch_size, :],by[:batch_size])
+                batch_val = (bx[:batch_size, :], by[:batch_size])
 
             print(step)
             out = model(batch_val[0], training=False)
@@ -180,7 +179,7 @@ def train(units, epsilon, batch_size, load_model, epochs):
         # Test model
         for step, batch_test in enumerate(test_dataset):
             if batch_test[0].shape[0] != batch_size:
-    
+
                 bx = batch_test[0]
                 by = batch_test[1]
 
@@ -190,7 +189,7 @@ def train(units, epsilon, batch_size, load_model, epochs):
                     by = tf.concat([by, by], axis=0)
 
                     z = bx.shape[0]
-                batch_test = (bx[:batch_size, :],by[:batch_size])
+                batch_test = (bx[:batch_size, :], by[:batch_size])
 
             out = model(batch_test[0], step=0, training=False)
             out = tf.keras.activations.softmax(out)
