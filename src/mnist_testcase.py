@@ -151,7 +151,6 @@ def train(units, epsilon, batch_size, load_model, epochs):
                     z = bx.shape[0]
                 batch_val = (bx[:batch_size, :], by[:batch_size])
 
-            print(step)
             out = model(batch_val[0], training=False)
             out = tf.keras.activations.softmax(out)
             loss = loss_fn(batch_val[1], out)
@@ -169,8 +168,8 @@ def train(units, epsilon, batch_size, load_model, epochs):
             best_loss = loss_val
             print("new best model with accuracy: " + str(best_acc) + " and loss " + str(best_loss))
 
-            model.save(folder_name=folder_name_best)
-        model.save(folder_name=folder_name)
+            #model.save(folder_name=folder_name_best)
+        #model.save(folder_name=folder_name)
 
         # Reset metrics
         loss_metric.reset_state()
@@ -191,7 +190,7 @@ def train(units, epsilon, batch_size, load_model, epochs):
                     z = bx.shape[0]
                 batch_test = (bx[:batch_size, :], by[:batch_size])
 
-            out = model(batch_test[0], step=0, training=False)
+            out = model(batch_test[0], training=False)
             out = tf.keras.activations.softmax(out)
             loss = loss_fn(batch_test[1], out)
             loss_metric.update_state(loss)
