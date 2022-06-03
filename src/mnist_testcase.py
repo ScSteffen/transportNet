@@ -117,7 +117,7 @@ def train(units, epsilon, batch_size, load_model, epochs):
             optimizer.apply_gradients(zip(grads, model.trainable_weights))
 
             # 2) Relaxation step
-            model.relax(batch_train[0])
+            # model.relax(batch_train[0])
 
             # Network monotoring and verbosity
             loss_metric.update_state(loss)

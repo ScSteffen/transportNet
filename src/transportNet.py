@@ -139,12 +139,17 @@ class TransNet(keras.Model):
 
     @tf.function
     def call(self, inputs):
-        z = self.linearInput(inputs)
-        z = self.relaxBlock1(z)
-        z = self.relaxBlock2(z)
-        z = self.relaxBlock3(z)
-        z = self.relaxBlock4(z)
-        z = self.linearOutput(z)
+        v_0 = self.linearInput(inputs)
+        v_1 = self.relaxBlock1.activation(v_0)
+        v_0 = self.relaxBlock1(v_0)
+        v_1 = self.relaxBlock1.relax(v_1)
+        v_0 = self.relaxBlock2(v_0)
+        v_1 = self.relaxBlock2.relax(v_1)
+        v_0 = self.relaxBlock3(v_0)
+        v_1 = self.relaxBlock3.relax(v_1)
+        v_0 = self.relaxBlock4(v_0)
+        v_1 = self.relaxBlock4.relax(v_1)
+        z = self.linearOutput(v_0)
         return z
 
     @tf.function
