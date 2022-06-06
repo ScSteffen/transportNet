@@ -81,7 +81,7 @@ def train(units, epsilon, batch_size, load_model, epochs):
 
     # initialize model state
     for step, batch_train in enumerate(train_dataset):
-        model.initialize(batch_train[0])
+        # model.initialize(batch_train[0])
         break
 
     # Iterate over epochs. (Training loop)
@@ -168,8 +168,8 @@ def train(units, epsilon, batch_size, load_model, epochs):
             best_loss = loss_val
             print("new best model with accuracy: " + str(best_acc) + " and loss " + str(best_loss))
 
-            #model.save(folder_name=folder_name_best)
-        #model.save(folder_name=folder_name)
+            # model.save(folder_name=folder_name_best)
+        # model.save(folder_name=folder_name)
 
         # Reset metrics
         loss_metric.reset_state()

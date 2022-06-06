@@ -41,10 +41,14 @@ class RelaxationLayer(keras.layers.Layer):
         return True
 
     @tf.function
-    def call(self, z_in) -> tf.Tensor:
-        self.v0_n.assign(z_in)
-        z = z_in + tf.matmul(self.v1_n, self.B0) + self.q
-        return z
+    def call(self, v_0_in, v_1_in) -> (tf.Tensor, tf.Tensor):
+        self.v0_n.assign(v_0_in)
+        self.v1_n.assign(v_1_in)
+
+        v_0_out = v_0_in + tf.matmul(v_1_in, self.B0) + self.q
+        v_1_out = v_1_in - tf.matmul(v_1_in, tf.transpose(self.B0)) - 1 / self.epsilon * (
+                v_1_in - self.activation(v_0_in))
+        return v_0_out, v_1_out
 
     @tf.function
     def relax(self, z_in) -> tf.Tensor:
@@ -141,14 +145,14 @@ class TransNet(keras.Model):
     def call(self, inputs):
         v_0 = self.linearInput(inputs)
         v_1 = self.relaxBlock1.activation(v_0)
-        v_0 = self.relaxBlock1(v_0)
-        v_1 = self.relaxBlock1.relax(v_1)
-        v_0 = self.relaxBlock2(v_0)
-        v_1 = self.relaxBlock2.relax(v_1)
-        v_0 = self.relaxBlock3(v_0)
-        v_1 = self.relaxBlock3.relax(v_1)
-        v_0 = self.relaxBlock4(v_0)
-        v_1 = self.relaxBlock4.relax(v_1)
+        v_0, v_1 = self.relaxBlock1(v_0, v_1)
+        # v_1 = self.relaxBlock1.relax(v_1)
+        v_0, v_1 = self.relaxBlock2(v_0, v_1)
+        # v_1 = self.relaxBlock2.relax(v_1)
+        v_0, v_1 = self.relaxBlock3(v_0, v_1)
+        # v_1 = self.relaxBlock3.relax(v_1)
+        v_0, v_1 = self.relaxBlock4(v_0, v_1)
+        # v_1 = self.relaxBlock4.relax(v_1)
         z = self.linearOutput(v_0)
         return z
 
