@@ -1,4 +1,4 @@
-from transportNet import TransNetImplicit, create_csv_logger_cb
+from src.networks.transportNetImplicit import TransNetImplicit, create_csv_logger_cb
 
 import tensorflow as tf
 from tensorflow import keras
@@ -28,7 +28,7 @@ def train(num_layers, units, epsilon, batch_size, load_model, epochs):
     model = TransNetImplicit(num_layers=num_layers, input_dim=input_dim, units=units, output_dim=output_dim,
                              epsilon=epsilon,
                              batch_size=batch_size)
-    model.relaxLayers[0].assemble_sys_mat()
+    # model.relaxLayers[0].assemble_sys_mat()
 
     # Build optimizer
     optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
@@ -108,16 +108,18 @@ def train(num_layers, units, epsilon, batch_size, load_model, epochs):
                 batch_train = (bx[:batch_size, :], by[:batch_size])
 
             # 1)  linear step
-            with tf.GradientTape() as tape:
-                out = model(batch_train[0], training=True)
-                # softmax activation for classification
-                out = tf.keras.activations.softmax(out)
-                # Compute reconstruction loss
-                loss = loss_fn(batch_train[1], out)
-                loss += sum(model.losses)  # Add KLD regularization loss
-            grads = tape.gradient(loss, model.trainable_weights)
-            model.set_none_grads_to_zero(grads, model.trainable_weights)
-            optimizer.apply_gradients(zip(grads, model.trainable_weights))
+            # with tf.GradientTape() as tape:
+
+            out = model(batch_train[0], training=True)
+            # softmax activation for classification
+            out = tf.keras.activations.softmax(out)
+            # Compute reconstruction loss
+            loss = loss_fn(batch_train[1], out)
+            loss += sum(model.losses)  # Add KLD regularization loss
+
+            # grads = tape.gradient(loss, model.trainable_weights)
+            # model.set_none_grads_to_zero(grads, model.trainable_weights)
+            # optimizer.apply_gradients(zip(grads, model.trainable_weights))
 
             # 2) Relaxation step
             # model.relax(batch_train[0])

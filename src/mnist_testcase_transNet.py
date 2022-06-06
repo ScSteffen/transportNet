@@ -1,4 +1,4 @@
-from transportNet import TransNetExplicit, create_csv_logger_cb
+from src.networks.transportNetExplicit import TransNetExplicit, create_csv_logger_cb
 
 import tensorflow as tf
 from tensorflow import keras

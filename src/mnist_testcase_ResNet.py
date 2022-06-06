@@ -1,4 +1,4 @@
-from transportNet import ResNet, create_csv_logger_cb
+from src.networks.resNet import ResNet, create_csv_logger_cb
 
 import tensorflow as tf
 from tensorflow import keras
