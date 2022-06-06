@@ -27,40 +27,101 @@ class RelaxationLayer(keras.layers.Layer):
         self.epsilon = epsilon
 
         self.B0 = self.add_weight(shape=(input_dim, units), initializer="random_normal", trainable=True)
-        # self.B1 = self.add_weight(shape=(input_dim, units), initializer="random_normal", trainable=True)
         self.q = self.add_weight(shape=(self.units,), initializer="random_normal", trainable=True)
         self.activation = tf.keras.activations.tanh
 
-        self.v0_n = self.add_weight(shape=(self.batch_size, self.units), initializer="zeros", trainable=False)
-        self.v1_n = self.add_weight(shape=(self.batch_size, self.units), initializer="zeros", trainable=False)
-
-    def initialize(self, v0_n) -> bool:
-        # call to initialize state of layer
-        self.v0_n.assign(v0_n)
-        self.v1_n.assign(self.activation(v0_n))
-        return True
-
     @tf.function
     def call(self, v_0_in, v_1_in) -> (tf.Tensor, tf.Tensor):
-        self.v0_n.assign(v_0_in)
-        self.v1_n.assign(v_1_in)
-
         v_0_out = v_0_in + tf.matmul(v_1_in, self.B0) + self.q
-        v_1_out = v_1_in - tf.matmul(v_1_in, tf.transpose(self.B0)) - 1 / self.epsilon * (
+        v_1_out = v_1_in - tf.matmul(v_0_in, tf.transpose(self.B0)) - 1 / self.epsilon * (
                 v_1_in - self.activation(v_0_in))
         return v_0_out, v_1_out
 
+
+class RelaxationLayerImplicit(keras.layers.Layer):
+    units: int
+    input_dim: int
+    batch_size: int
+    epsilon: float
+
+    B0: tf.Tensor
+    B1: tf.Tensor
+    q: tf.Tensor
+    activation: tf.keras.activations.relu
+
+    v0_n: tf.Tensor
+    v1_n: tf.Tensor
+
+    def __init__(self, input_dim=32, units=32, batch_size=32, epsilon=0.1, name="RelaxationLayerImplicit", **kwargs):
+        super(RelaxationLayerImplicit, self).__init__(**kwargs)
+
+        self.units = units
+        self.input_dim = input_dim
+        self.batch_size = batch_size
+        self.epsilon = epsilon
+
+        self.B0 = self.add_weight(shape=(input_dim, units), initializer="random_normal", trainable=True)
+        self.q = self.add_weight(shape=(self.units,), initializer="random_normal", trainable=True)
+        self.sys_matrix = self.add_weight(shape=(2 * input_dim, 2 * units), initializer="random_normal",
+                                          trainable=True)
+        self.activation = tf.keras.activations.tanh
+
+    def assemble_sys_mat(self):
+        """
+        assembles the system matrix from the weight matrix
+        :return: Void
+        """
+
+        tensor = [[1, 1], [1, 1], [1, 1]]  # tf.rank(tensor) == 2
+        indices = [[0, 1], [2, 0]]  # num_updates == 2, index_depth == 2
+        updates = [5, 10]
+        print(tf.tensor_scatter_nd_update(tensor, indices, updates))
+
+        self.sys_matrix
+
     @tf.function
-    def relax(self, z_in) -> tf.Tensor:
-        self.v1_n.assign(z_in)
-        z = z_in - tf.matmul(z_in, tf.transpose(self.B0)) - 1 / self.epsilon * (
-                z_in - self.activation(self.v0_n))
+    def call(self, v_0_in, v_1_in) -> (tf.Tensor, tf.Tensor):
+        v_0_out = v_0_in + tf.matmul(v_1_in, self.B0) + self.q
+        v_1_out = v_1_in - tf.matmul(v_0_in, tf.transpose(self.B0)) - 1 / self.epsilon * (
+                v_1_in - self.activation(v_0_in))
+        return v_0_out, v_1_out
+
+
+class ResNetLayer(keras.layers.Layer):
+    units: int
+    input_dim: int
+    batch_size: int
+    epsilon: float
+
+    B0: tf.Tensor
+    B1: tf.Tensor
+    q: tf.Tensor
+    activation: tf.keras.activations.relu
+
+    v0_n: tf.Tensor
+    v1_n: tf.Tensor
+
+    def __init__(self, input_dim=32, units=32, batch_size=32, epsilon=0.1, name="RelaxationLayer", **kwargs):
+        super(ResNetLayer, self).__init__(**kwargs)
+
+        self.units = units
+        self.input_dim = input_dim
+        self.batch_size = batch_size
+        self.epsilon = epsilon
+
+        self.B0 = self.add_weight(shape=(input_dim, units), initializer="random_normal", trainable=True)
+        self.q = self.add_weight(shape=(self.units,), initializer="random_normal", trainable=True)
+        self.activation = tf.keras.activations.tanh
+
+    @tf.function
+    def call(self, z_in) -> tf.Tensor:
+        z = z_in - tf.matmul(self.activation(z_in), tf.transpose(self.B0)) + self.q
         return z
 
 
-class Linear(keras.layers.Layer):
+class LinearLayer(keras.layers.Layer):
     def __init__(self, units=32, input_dim=32, name="linear", **kwargs):
-        super(Linear, self).__init__(**kwargs)
+        super(LinearLayer, self).__init__(**kwargs)
         self.units = units
         self.w = self.add_weight(shape=(input_dim, units), initializer="random_normal",
                                  trainable=True, )
@@ -71,7 +132,7 @@ class Linear(keras.layers.Layer):
         return tf.matmul(inputs, self.w) + self.b
 
     def get_config(self):
-        config = super(Linear, self).get_config()
+        config = super(LinearLayer, self).get_config()
         config.update({"units": self.units})
         return config
 
@@ -91,68 +152,102 @@ class Linear(keras.layers.Layer):
                              trainable=True, name="b_", dtype=tf.float32)
 
 
-class TransNet(keras.Model):
-    # v1_ic: tf.Variable
+class TransNetExplicit(keras.Model):
     input_dim: int
     output_dim: int
     units: int
     epsilon: float
     batch_size: int
+    num_layers: int
 
-    linearInput: Linear
-    relaxBlock1: RelaxationLayer
-    relaxBlock2: RelaxationLayer
-    relaxBlock3: RelaxationLayer
-    relaxBlock4: RelaxationLayer
-    linearOutput: Linear
+    linearInput: LinearLayer
+    linearOutput: LinearLayer
+    relaxLayers: list  # [RelaxationLayer]
 
-    def __init__(self, input_dim=784, units=32, output_dim=10, batch_size=32, epsilon=0.1, name="transNet", **kwargs):
-        super(TransNet, self).__init__(name=name, **kwargs)
+    def __init__(self, num_layers=4, input_dim=784, units=32, output_dim=10, batch_size=32, epsilon=0.1,
+                 name="transNet", **kwargs):
+        super(TransNetExplicit, self).__init__(name=name, **kwargs)
 
         self.input_dim = input_dim
         self.epsilon = epsilon
         self.output_dim = output_dim
         self.units = units
         self.batch_size = batch_size
+        self.num_layers = num_layers
 
-        self.linearInput = Linear(input_dim=self.input_dim, units=self.units)
-        self.relaxBlock1 = RelaxationLayer(input_dim=self.units, units=self.units, batch_size=batch_size,
-                                           epsilon=self.epsilon)
-        self.relaxBlock2 = RelaxationLayer(input_dim=self.units, units=self.units, batch_size=batch_size,
-                                           epsilon=self.epsilon)
-        self.relaxBlock3 = RelaxationLayer(input_dim=self.units, units=self.units, batch_size=batch_size,
-                                           epsilon=self.epsilon)
-        self.relaxBlock4 = RelaxationLayer(input_dim=units, units=self.units, batch_size=batch_size,
-                                           epsilon=self.epsilon)
-        self.linearOutput = Linear(input_dim=self.units, units=self.output_dim)
+        self.linearInput = LinearLayer(input_dim=self.input_dim, units=self.units)
+        self.linearOutput = LinearLayer(input_dim=self.units, units=self.output_dim)
 
-    def initialize(self, inputs):
-        z = self.linearInput(inputs)
-
-        # self.v1_ic = self.relaxBlock1.activation(z)
-
-        self.relaxBlock1.initialize(z)
-        z = self.relaxBlock1(z)
-        self.relaxBlock2.initialize(z)
-        z = self.relaxBlock2(z)
-        self.relaxBlock3.initialize(z)
-        z = self.relaxBlock3(z)
-        self.relaxBlock4.initialize(z)
-
-        return True
+        self.relaxLayers = []
+        for i in range(num_layers):
+            self.relaxLayers.append(RelaxationLayer(input_dim=self.units, units=self.units, batch_size=batch_size,
+                                                    epsilon=self.epsilon))
 
     @tf.function
     def call(self, inputs):
         v_0 = self.linearInput(inputs)
-        v_1 = self.relaxBlock1.activation(v_0)
-        v_0, v_1 = self.relaxBlock1(v_0, v_1)
-        # v_1 = self.relaxBlock1.relax(v_1)
-        v_0, v_1 = self.relaxBlock2(v_0, v_1)
-        # v_1 = self.relaxBlock2.relax(v_1)
-        v_0, v_1 = self.relaxBlock3(v_0, v_1)
-        # v_1 = self.relaxBlock3.relax(v_1)
-        v_0, v_1 = self.relaxBlock4(v_0, v_1)
-        # v_1 = self.relaxBlock4.relax(v_1)
+        v_1 = self.relaxLayers[0].activation(v_0)
+
+        for i in range(self.num_layers):
+            v_0, v_1 = self.relaxLayers[i](v_0, v_1)
+
+        z = self.linearOutput(v_0)
+        return z
+
+    @staticmethod
+    def set_none_grads_to_zero(grads, weights):
+        """
+        :param grads: gradients of current tape
+        :param weights: weights of current model
+        :return: sets the nonexistent gradients to zero (i K step, the grads of S and L step are None, which throws annoying warnings)
+        """
+        for i in range(len(grads)):
+            if grads[i] is None:
+                grads[i] = tf.zeros(shape=weights[i].shape, dtype=tf.float32)
+        return 0
+
+
+class TransNetImplicit(keras.Model):
+    input_dim: int
+    output_dim: int
+    units: int
+    epsilon: float
+    batch_size: int
+    num_layers: int
+
+    linearInput: LinearLayer
+    linearOutput: LinearLayer
+    relaxLayers: list  # [RelaxationLayer]
+
+    def __init__(self, num_layers=4, input_dim=784, units=32, output_dim=10, batch_size=32, epsilon=0.1,
+                 name="transNet", **kwargs):
+        super(TransNetImplicit, self).__init__(name=name, **kwargs)
+
+        self.input_dim = input_dim
+        self.epsilon = epsilon
+        self.output_dim = output_dim
+        self.units = units
+        self.batch_size = batch_size
+        self.num_layers = num_layers
+
+        self.linearInput = LinearLayer(input_dim=self.input_dim, units=self.units)
+        self.linearOutput = LinearLayer(input_dim=self.units, units=self.output_dim)
+
+        self.relaxLayers = []
+        for i in range(num_layers):
+            self.relaxLayers.append(
+                RelaxationLayerImplicit(input_dim=self.units, units=self.units, batch_size=batch_size,
+                                        epsilon=self.epsilon))
+
+    @tf.function
+    def call(self, inputs):
+
+        v_0 = self.linearInput(inputs)
+        v_1 = self.relaxLayers[0].activation(v_0)
+
+        for i in range(self.num_layers):
+            v_0, v_1 = self.relaxLayers[i](v_0, v_1)
+
         z = self.linearOutput(v_0)
         return z
 
@@ -166,13 +261,42 @@ class TransNet(keras.Model):
         z = self.relaxBlock4.relax(z)
         return z
 
-    def deactivate_linear_layers(self):
-        self.layers[0].trainable = False  # Dense input
-        self.layers[-1].trainable = False  # Dense output
 
-    def activate_linear_layers(self):
-        self.layers[0].trainable = True  # Dense input
-        self.layers[-1].trainable = True  # Dense output
+class ResNet(keras.Model):
+    input_dim: int
+    output_dim: int
+    units: int
+    batch_size: int
+    num_layers: int
+
+    linearInput: LinearLayer
+    linearOutput: LinearLayer
+    relaxLayers: list  # [RelaxationLayer]
+
+    def __init__(self, num_layers=4, input_dim=784, units=32, output_dim=10, batch_size=32, name="ResNet", **kwargs):
+        super(ResNet, self).__init__(name=name, **kwargs)
+
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.units = units
+        self.batch_size = batch_size
+        self.num_layers = num_layers
+
+        self.linearInput = LinearLayer(input_dim=self.input_dim, units=self.units)
+        self.linearOutput = LinearLayer(input_dim=self.units, units=self.output_dim)
+
+        self.relaxLayers = []
+        for i in range(num_layers):
+            self.relaxLayers.append(ResNetLayer(input_dim=self.units, units=self.units, batch_size=batch_size))
+
+    @tf.function
+    def call(self, inputs):
+        z = self.linearInput(inputs)
+
+        for i in range(self.num_layers):
+            z = self.relaxLayers[i](z)
+        z = self.linearOutput(z)
+        return z
 
     @staticmethod
     def set_none_grads_to_zero(grads, weights):

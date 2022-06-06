@@ -1,4 +1,4 @@
-from transportNet import TransNet, create_csv_logger_cb
+from transportNet import TransNetImplicit, create_csv_logger_cb
 
 import tensorflow as tf
 from tensorflow import keras
@@ -7,9 +7,9 @@ from optparse import OptionParser
 from os import path, makedirs
 
 
-def train(units, epsilon, batch_size, load_model, epochs):
+def train(num_layers, units, epsilon, batch_size, load_model, epochs):
     # specify training
-    filename = "complete_sweep_" + str(units) + "_e" + str(epsilon)
+    filename = "complete_sweep_" + str(num_layers) + "_" + str(units) + "_e" + str(epsilon)
     folder_name = filename + '/latest_model'
     folder_name_best = filename + '/best_model'
 
@@ -25,7 +25,10 @@ def train(units, epsilon, batch_size, load_model, epochs):
     input_dim = 784  # 28x28  pixel per image
     output_dim = 10  # one-hot vector of digits 0-9
 
-    model = TransNet(input_dim=input_dim, units=units, output_dim=output_dim, epsilon=epsilon, batch_size=batch_size)
+    model = TransNetImplicit(num_layers=num_layers, input_dim=input_dim, units=units, output_dim=output_dim,
+                             epsilon=epsilon,
+                             batch_size=batch_size)
+    model.relaxLayers[0].assemble_sys_mat()
 
     # Build optimizer
     optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
@@ -232,6 +235,7 @@ if __name__ == '__main__':
     parser.add_option("-t", "--train", dest="train", default=1)
     parser.add_option("-b", "--batch_size", dest="batch_size", default=32)
     parser.add_option("-e", "--epochs", dest="epochs", default=100)
+    parser.add_option("-n", "--num_layers", dest="num_layers", default=100)
 
     (options, args) = parser.parse_args()
     options.units = int(options.units)
@@ -240,7 +244,8 @@ if __name__ == '__main__':
     options.train = int(options.train)
     options.batch_size = int(options.batch_size)
     options.epochs = int(options.epochs)
+    options.num_layers = int(options.num_layers)
 
     if options.train == 1:
-        train(units=options.units, epsilon=options.epsilon, batch_size=options.batch_size,
-              load_model=options.load_model, epochs=options.epochs)
+        train(num_layers=options.num_layers, units=options.units, epsilon=options.epsilon,
+              batch_size=options.batch_size, load_model=options.load_model, epochs=options.epochs)
