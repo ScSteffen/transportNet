@@ -6,10 +6,12 @@ import numpy as np
 from optparse import OptionParser
 from os import path, makedirs
 
+tf.config.run_functions_eagerly(True)  # only for debugging
+
 
 def train(num_layers, units, epsilon, batch_size, load_model, epochs):
     # specify training
-    filename = "complete_sweep_" + str(num_layers) + "_" + str(units) + "_e" + str(epsilon)
+    filename = "saved_models/complete_sweep_" + str(num_layers) + "_" + str(units) + "_e" + str(epsilon)
     folder_name = filename + '/latest_model'
     folder_name_best = filename + '/best_model'
 
@@ -110,13 +112,18 @@ def train(num_layers, units, epsilon, batch_size, load_model, epochs):
             # 1)  linear step
             # with tf.GradientTape() as tape:
 
-            out = model(batch_train[0], training=True)
+            out = model.forward(batch_train[0])
+
+            print(out[:10, :])
+
             # softmax activation for classification
             out = tf.keras.activations.softmax(out)
+
             # Compute reconstruction loss
             loss = loss_fn(batch_train[1], out)
             loss += sum(model.losses)  # Add KLD regularization loss
 
+            break
             # grads = tape.gradient(loss, model.trainable_weights)
             # model.set_none_grads_to_zero(grads, model.trainable_weights)
             # optimizer.apply_gradients(zip(grads, model.trainable_weights))

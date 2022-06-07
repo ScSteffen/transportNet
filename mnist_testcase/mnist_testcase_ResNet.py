@@ -1,4 +1,4 @@
-from src.networks.transportNetExplicit import TransNetExplicit, create_csv_logger_cb
+from src.networks.resNet import ResNet, create_csv_logger_cb
 
 import tensorflow as tf
 from tensorflow import keras
@@ -7,9 +7,9 @@ from optparse import OptionParser
 from os import path, makedirs
 
 
-def train(num_layers, units, epsilon, batch_size, load_model, epochs):
+def train(num_layers, units, batch_size, load_model, epochs):
     # specify training
-    filename = "complete_sweep_" + str(num_layers) + "_" + str(units) + "_e" + str(epsilon)
+    filename = "saved_models/resNet_" + str(num_layers) + "_" + str(units)
     folder_name = filename + '/latest_model'
     folder_name_best = filename + '/best_model'
 
@@ -25,9 +25,8 @@ def train(num_layers, units, epsilon, batch_size, load_model, epochs):
     input_dim = 784  # 28x28  pixel per image
     output_dim = 10  # one-hot vector of digits 0-9
 
-    model = TransNetExplicit(num_layers=num_layers, input_dim=input_dim, units=units, output_dim=output_dim,
-                             epsilon=epsilon,
-                             batch_size=batch_size)
+    model = ResNet(num_layers=num_layers, input_dim=input_dim, units=units, output_dim=output_dim,
+                   batch_size=batch_size)
 
     # Build optimizer
     optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
@@ -246,5 +245,5 @@ if __name__ == '__main__':
     options.num_layers = int(options.num_layers)
 
     if options.train == 1:
-        train(num_layers=options.num_layers, units=options.units, epsilon=options.epsilon,
+        train(num_layers=options.num_layers, units=options.units,
               batch_size=options.batch_size, load_model=options.load_model, epochs=options.epochs)

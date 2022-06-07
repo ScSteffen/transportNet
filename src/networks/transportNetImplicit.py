@@ -15,16 +15,18 @@ class RelaxationLayerImplicit(keras.layers.Layer):
     q: tf.Tensor
     activation: tf.keras.activations.relu
 
-    v0_n: tf.Tensor
-    v1_n: tf.Tensor
+    v_np1: tf.Tensor
 
-    def __init__(self, input_dim=32, units=32, batch_size=32, epsilon=0.1, name="RelaxationLayerImplicit", **kwargs):
+    def __init__(self, input_dim=32, units=32, batch_size=32, epsilon=0.1, dt=0.1, name="RelaxationLayerImplicit",
+                 **kwargs):
         super(RelaxationLayerImplicit, self).__init__(**kwargs)
 
+        self.difference = tf.zeros(batch_size)
         self.units = units
         self.input_dim = input_dim
         self.batch_size = batch_size
         self.epsilon = epsilon
+        self.dt = dt
 
         self.B0 = self.add_weight(shape=(input_dim, units), initializer="random_normal", trainable=True)
         self.q = self.add_weight(shape=(self.units,), initializer="random_normal", trainable=True)
@@ -34,26 +36,46 @@ class RelaxationLayerImplicit(keras.layers.Layer):
         self.sys_matrix = self.add_weight(shape=(2 * input_dim, 2 * units), initializer="zeros", trainable=True)
         self.rhs = self.add_weight(shape=(2 * input_dim, batch_size), initializer="zeros", trainable=False)
 
+        self.v_n = self.add_weight(shape=(2 * input_dim, batch_size), initializer="zeros", trainable=False)
+        self.v_np1 = self.add_weight(shape=(2 * input_dim, batch_size), initializer="zeros", trainable=False)
+        self.relaxation = self.add_weight(shape=(input_dim, batch_size), initializer="zeros", trainable=False)
+
     def assemble_sys_mat(self):
         """
         assembles the system matrix from the weight matrix
         :return: Void
         """
-        self.sys_matrix.assign(tf.zeros((2 * self.units, 2 * self.units)))
-        self.sys_matrix[:self.units, self.units:].assign(self.B0)
-        self.sys_matrix[self.units:, :self.units].assign(-tf.transpose(self.B0))
+        self.sys_matrix.assign(tf.eye(2 * self.units))  # identity
+        self.sys_matrix[:self.units, self.units:].assign(self.B0)  # upper right block
+        self.sys_matrix[self.units:, :self.units].assign(-tf.transpose(self.B0))  # lower left block
+
+        # lower right block
+        self.sys_matrix[self.units:, self.units:].assign(
+            tf.scalar_mul((1 + self.dt / self.epsilon), tf.eye(self.units)))
+
+        self.relaxation.assign(tf.zeros((self.units, self.batch_size)))
 
         return 0
 
     # @tf.function
-    def call(self, v0, v1) -> (tf.Tensor, tf.Tensor):
-        # create rhs
-        self.rhs[:self.units, :].assign(v0 + self.q)
-        self.rhs[self.units:, :].assign(v1)
+    def forward(self, v0, v1) -> (tf.Tensor, tf.Tensor):
+        # save v_n
+        self.v_n[:self.units, :].assign(v0)
+        self.v_n[self.units:, :].assign(v1)
 
-        v_np1 = tf.linalg.solve(self.sys_matrix, self.rhs)
+        # create rhs (relaxation step)
+        z1 = tf.transpose(tf.transpose(v0) + tf.scalar_mul(self.dt, self.q))
+        z2 = v1 + tf.scalar_mul(self.dt / self.epsilon, self.activation(v0))
+        self.rhs[:self.units, :].assign(z1)
+        self.rhs[self.units:, :].assign(z2)
 
-        return v_np1[:self.units, :], v_np1[self.units:, :]
+        # solve system (sweeping step)
+        z = tf.linalg.solve(self.sys_matrix, self.rhs)
+
+        self.difference = tf.reduce_mean(tf.norm(self.v_np1 - z, axis=0))  # monitor convergence
+        self.v_np1.assign(z)
+
+        return self.v_np1[:self.units, :], self.v_np1[self.units:, :]
 
 
 class LinearLayer(keras.layers.Layer):
@@ -94,6 +116,7 @@ class TransNetImplicit(keras.Model):
     output_dim: int
     units: int
     epsilon: float
+    dt: float
     batch_size: int
     num_layers: int
 
@@ -101,12 +124,13 @@ class TransNetImplicit(keras.Model):
     linearOutput: LinearLayer
     relaxLayers: list  # [RelaxationLayer]
 
-    def __init__(self, num_layers=4, input_dim=784, units=32, output_dim=10, batch_size=32, epsilon=0.1,
+    def __init__(self, num_layers=4, input_dim=784, units=32, output_dim=10, batch_size=32, epsilon=0.1, dt=0.1,
                  name="transNet", **kwargs):
         super(TransNetImplicit, self).__init__(name=name, **kwargs)
 
         self.input_dim = input_dim
         self.epsilon = epsilon
+        self.dt = dt
         self.output_dim = output_dim
         self.units = units
         self.batch_size = batch_size
@@ -119,36 +143,33 @@ class TransNetImplicit(keras.Model):
         for i in range(num_layers):
             self.relaxLayers.append(
                 RelaxationLayerImplicit(input_dim=self.units, units=self.units, batch_size=batch_size,
-                                        epsilon=self.epsilon))
+                                        epsilon=self.epsilon, dt=self.dt))
 
     # @tf.function
-    def call(self, inputs):
+    def forward(self, inputs):
 
         v_0 = self.linearInput(inputs)
 
-        v_0 = tf.transpose(v_0)
-        v_1 = self.relaxLayers[0].activation(v_0)
+        v_0_init = tf.transpose(v_0)
+        v_1_init = self.relaxLayers[0].activation(v_0_init)
 
-        for i in range(self.num_layers):
+        for i in range(self.num_layers):  # assemble systems
             self.relaxLayers[i].assemble_sys_mat()
-            v_0, v_1 = self.relaxLayers[i](v_0, v_1)
+
+        v_1 = v_1_init
+        v_0 = v_0_init
+
+        # forward evalutaion with splitting
+        for i in range(self.num_layers):
+            v_0, v_1 = self.relaxLayers[i].forward(v_0, v_1)
 
         v_0 = tf.transpose(v_0)
         z = self.linearOutput(v_0)
         return z
 
-    @tf.function
-    def relax(self, inputs):
-        z = self.linearInput(inputs)
-        z = self.relaxBlock1.activation(z)  # This is the IC for the relaxation
-        z = self.relaxBlock1.relax(z)
-        z = self.relaxBlock2.relax(z)
-        z = self.relaxBlock3.relax(z)
-        z = self.relaxBlock4.relax(z)
-        return z
-
 
 # ------ utils below
+
 
 def create_csv_logger_cb(folder_name: str):
     '''
