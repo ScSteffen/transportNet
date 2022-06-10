@@ -72,6 +72,7 @@ def train(num_layers, units, epsilon, batch_size, load_model, epochs):
 
         for name, param in model.named_parameters():
             print(name, param)
+            break
     print("Done!")
 
     # 3) Call network
