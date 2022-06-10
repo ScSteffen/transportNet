@@ -1,0 +1,1 @@
+python mnist_testcase.py -u 200 -x 0.01 -l 0 -t 1 -b 32 -e 100
