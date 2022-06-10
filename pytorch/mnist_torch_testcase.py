@@ -32,14 +32,17 @@ def train(num_layers, units, epsilon, batch_size, load_model, epochs, model_type
 
     # 1) Create network
     if model_type == 0:
-        model = ImplicitNet(units=units, input_dim=784, output_dim=10).to(device)
-    if model_type == 1:
-        model = ResNet(units=units, input_dim=784, output_dim=10).to(device)
+        model = ImplicitNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers).to(device)
+        print("implicit ResNet chosen")
 
-    print(model)
+    if model_type == 1:
+        model = ResNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers).to(device)
+        print("explicit ResNet chosen")
+
+    # print(model)
 
     # 2)  Create optimizer and loss
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    optimizer = torch.optim.Adam(model.parameters())
     loss_fn = nn.CrossEntropyLoss()
 
     # 3) Create Dataset
@@ -75,9 +78,6 @@ def train(num_layers, units, epsilon, batch_size, load_model, epochs, model_type
         fit(train_dataloader, model, loss_fn, optimizer, device)
         test(test_dataloader, model, loss_fn, device)
 
-        for name, param in model.named_parameters():
-            print(name, param)
-            break
     print("Done!")
 
     # 3) Call network
@@ -101,13 +101,22 @@ def fit(dataloader, model, loss_fn, optimizer, device):
         loss = loss_fn(pred, y)
 
         # Backpropagation
-        optimizer.zero_grad()
         loss.backward()
 
         # Sanity checks
         # print(model.linear_relu_stack._modules['0'].A)
 
+        # model.print_grads()
+        # optimization
+        # model.print_weights()
         optimizer.step()
+        # model.print_weights()
+
+        optimizer.zero_grad()
+
+        # for name, param in model.named_parameters():
+        #    print(name, param)
+        #    break
 
         if batch % 100 == 0:
             loss, current = loss.item(), batch * len(X)
