@@ -6,10 +6,11 @@ from torch import nn
 
 from optparse import OptionParser
 
-from src.networks.simple_implicit import ImplicitNet, ImplicitLayer
+from src.networks.simple_implicit import ImplicitNet
+from src.networks.resnet import ResNet
 
 
-def train(num_layers, units, epsilon, batch_size, load_model, epochs):
+def train(num_layers, units, epsilon, batch_size, load_model, epochs, model_type):
     """
     :param num_layers:
     :param units:
@@ -30,7 +31,11 @@ def train(num_layers, units, epsilon, batch_size, load_model, epochs):
     # gradcheck(layer, torch.randn(3, 2, requires_grad=True, dtype=torch.double), check_undefined_grad=False)
 
     # 1) Create network
-    model = ImplicitNet(units=units, input_dim=784, output_dim=10).to(device)
+    if model_type == 0:
+        model = ImplicitNet(units=units, input_dim=784, output_dim=10).to(device)
+    if model_type == 1:
+        model = ResNet(units=units, input_dim=784, output_dim=10).to(device)
+
     print(model)
 
     # 2)  Create optimizer and loss
@@ -138,6 +143,7 @@ if __name__ == '__main__':
     parser.add_option("-b", "--batch_size", dest="batch_size", default=32)
     parser.add_option("-e", "--epochs", dest="epochs", default=100)
     parser.add_option("-n", "--num_layers", dest="num_layers", default=100)
+    parser.add_option("-m", "--model_type", dest="model_type", default=0)
 
     (options, args) = parser.parse_args()
     options.units = int(options.units)
@@ -147,7 +153,9 @@ if __name__ == '__main__':
     options.batch_size = int(options.batch_size)
     options.epochs = int(options.epochs)
     options.num_layers = int(options.num_layers)
+    options.model_type = int(options.model_type)
 
     if options.train == 1:
         train(num_layers=options.num_layers, units=options.units, epsilon=options.epsilon,
-              batch_size=options.batch_size, load_model=options.load_model, epochs=options.epochs)
+              batch_size=options.batch_size, load_model=options.load_model, epochs=options.epochs,
+              model_type=options.model_type)
