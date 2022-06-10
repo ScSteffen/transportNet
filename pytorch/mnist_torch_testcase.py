@@ -6,8 +6,10 @@ from torch import nn
 
 from optparse import OptionParser
 
-from src.networks.simple_implicit import ImplicitNet
+from src.networks.simple_implicit import ImplicitNet, ImplicitLayer
 from src.networks.resnet import ResNet
+
+from torch.autograd import gradcheck
 
 
 def train(num_layers, units, epsilon, batch_size, load_model, epochs, model_type):
@@ -25,21 +27,26 @@ def train(num_layers, units, epsilon, batch_size, load_model, epochs, model_type
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using {device} device")
 
-    # 0) Sanitychecks (gradient works!)
-    # from torch.autograd import gradcheck
-    # layer = ImplicitLayer(size_in=2, size_out=2)
-    # gradcheck(layer, torch.randn(3, 2, requires_grad=True, dtype=torch.double), check_undefined_grad=False)
-
     # 1) Create network
     if model_type == 0:
         model = ImplicitNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers).to(device)
         print("implicit ResNet chosen")
+        layer = ImplicitLayer(in_features=2, out_features=2)
+        test = gradcheck(layer, torch.randn(3, 2, requires_grad=True, dtype=torch.double), check_undefined_grad=False,
+                         atol=1e-7)
+        if test:
+            print("Gradient of implicit layer corresponds to gradient of finite difference approximation")
 
     if model_type == 1:
         model = ResNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers).to(device)
         print("explicit ResNet chosen")
 
     # print(model)
+    # 0) Sanitycheck
+    test = gradcheck(model, torch.randn(3, 784, requires_grad=True, dtype=torch.double), check_undefined_grad=False,
+                     atol=1e-7)
+    if test:
+        print("Gradient of model corresponds to gradient of finite difference approximation")
 
     # 2)  Create optimizer and loss
     optimizer = torch.optim.Adam(model.parameters())
@@ -95,6 +102,8 @@ def fit(dataloader, model, loss_fn, optimizer, device):
     for batch, (X, y) in enumerate(dataloader):
         X, y = X.to(device), y.to(device)
 
+        X = X.double()
+        # y = y.double()
         # Compute prediction error
         z = torch.flatten(X, start_dim=1)
         pred = model(z)
@@ -113,6 +122,7 @@ def fit(dataloader, model, loss_fn, optimizer, device):
         # model.print_weights()
 
         optimizer.zero_grad()
+        # print("------")
 
         # for name, param in model.named_parameters():
         #    print(name, param)
