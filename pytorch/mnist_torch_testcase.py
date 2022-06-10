@@ -24,7 +24,7 @@ def train(num_layers, units, epsilon, batch_size, load_model, epochs, model_type
     """
 
     # Setup device
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cpu"  # "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using {device} device")
 
     # 1) Create network
