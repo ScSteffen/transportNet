@@ -6,7 +6,7 @@ from torch import nn
 
 from optparse import OptionParser
 
-from pytorch.src.networks.simple_implicit import ImplicitNet, ImplicitLayer
+from ..src.networks.simple_implicit import ImplicitNet, ImplicitLayer
 
 
 def train(num_layers, units, epsilon, batch_size, load_model, epochs):
