@@ -5,15 +5,15 @@ import math
 from src.layers import LinearLayer
 
 
-class NewtinImplictNet(nn.Module):
-    def __init__(self, units, input_dim, output_dim, num_layers):
-        super(NewtinImplictNet, self).__init__()
+class NewtonImplicitNet(nn.Module):
+    def __init__(self, units, input_dim, output_dim, num_layers,device):
+        super(NewtonImplicitNet, self).__init__()
         self.num_layers = num_layers
         self.linearInput = LinearLayer(input_dim, units)
-        self.block1 = TanhNewtonImplicitLayerOrig(out_features=units, tol=1e-4, max_iter=50)
-        self.block2 = TanhNewtonImplicitLayerOrig(out_features=units, tol=1e-4, max_iter=50)
-        self.block3 = TanhNewtonImplicitLayerOrig(out_features=units, tol=1e-4, max_iter=50)
-        self.block4 = TanhNewtonImplicitLayerOrig(out_features=units, tol=1e-4, max_iter=50)
+        self.block1 = TanhNewtonImplicitLayer(out_features=units, tol=1e-4, max_iter=50,device=device)
+        self.block2 = TanhNewtonImplicitLayer(out_features=units, tol=1e-4, max_iter=50,device=device)
+        self.block3 = TanhNewtonImplicitLayer(out_features=units, tol=1e-4, max_iter=50,device=device)
+        self.block4 = TanhNewtonImplicitLayer(out_features=units, tol=1e-4, max_iter=50,device=device)
 
         self.linearOutput = LinearLayer(units, output_dim)
 
@@ -49,61 +49,14 @@ class NewtinImplictNet(nn.Module):
         # print(self.linearOutput.weight)
 
 
+
 class TanhNewtonImplicitLayer(nn.Module):
-    def __init__(self, out_features, tol=1e-4, max_iter=50):
+    def __init__(self, out_features, tol=1e-4, max_iter=50,device="cuda"):
         super().__init__()
         self.linear = nn.Linear(out_features, out_features, bias=False)
         self.tol = tol
         self.max_iter = max_iter
-
-        self.weight = nn.Parameter(torch.empty((out_features, out_features), dtype=torch.float))  # W^T
-        self.bias = nn.Parameter(torch.empty(out_features, dtype=torch.float))
-        self.activation = torch.tanh
-        self.reset_parameters()
-
-    def reset_parameters(self) -> None:
-        # Setting a=sqrt(5) in kaiming_uniform is the same as initializing with
-        # uniform(-1/sqrt(in_features), 1/sqrt(in_features)). For details, see
-        # https://github.com/pytorch/pytorch/issues/57109
-        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
-        if self.bias is not None:
-            fan_in, _ = nn.init._calculate_fan_in_and_fan_out(self.weight)
-            bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
-            nn.init.uniform_(self.bias, -bound, bound)
-
-    def forward(self, x):
-        # Run Newton's method outside of the autograd framework
-        with torch.no_grad():
-            z = x
-            self.iterations = 0
-            while self.iterations < self.max_iter:
-                # definition of g
-                g = torch.matmul(z, self.weight) - x - self.activation(x) - self.bias
-                self.err = torch.norm(g)
-                if self.err < self.tol:
-                    break
-
-                # newton step
-                J = torch.transpose(self.weight, 0, 1).repeat(x.shape[0], 1, 1)  # assemble broadcastet matrix of system
-
-                z = z - torch.solve(g[:, :, None], J)[0][:, :, 0]
-
-                self.iterations += 1
-
-        # reengage autograd and add the gradient hook
-        # t = z - torch.tanh(self.linear(z) + x)
-        z = z - (torch.matmul(z, self.weight) - x - self.activation(x) - self.bias)
-        if z.requires_grad:
-            z.register_hook(lambda grad: torch.solve(grad[:, :, None], J.transpose(1, 2))[0][:, :, 0])
-        return z
-
-
-class TanhNewtonImplicitLayerOrig(nn.Module):
-    def __init__(self, out_features, tol=1e-4, max_iter=50):
-        super().__init__()
-        self.linear = nn.Linear(out_features, out_features, bias=False)
-        self.tol = tol
-        self.max_iter = max_iter
+        self.device=device
 
     def forward(self, x):
         # Run Newton's method outside of the autograd framework
@@ -118,7 +71,7 @@ class TanhNewtonImplicitLayerOrig(nn.Module):
                     break
 
                 # newton step
-                J = torch.eye(z.shape[1])[None, :, :] - (1 / torch.cosh(z_linear) ** 2)[:, :,
+                J = torch.eye(z.shape[1],device=self.device)[None, :, :] - (1 / torch.cosh(z_linear) ** 2)[:, :,
                                                         None] * self.linear.weight[None, :, :]
                 z = z - torch.solve(g[:, :, None], J)[0][:, :, 0]
 

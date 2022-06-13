@@ -8,7 +8,7 @@ from optparse import OptionParser
 
 from src.simple_implicit import ImplicitNet, ImplicitLayer
 from src.resnet import ResNet
-from src.newton_implicit import NewtinImplictNet
+from src.newton_implicit import NewtonImplicitNet
 from src.transNetImplicit import TransNet, TransNetLayer
 
 from torch.autograd import gradcheck
@@ -28,10 +28,12 @@ def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_
     # Setup device
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using {device} device")
-
+    print("model type")
+    print(model_type)
+    
     # 1) Create network
     if model_type == 0:
-        model = ImplicitNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers).to(device).double()
+        model = ImplicitNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers).to(device)
         print("implicitNet chosen")
         layer = ImplicitLayer(in_features=2, out_features=2)
         # gcheck = gradcheck(layer, torch.randn(batch_size, units, requires_grad=True, dtype=torch.float),
@@ -41,11 +43,13 @@ def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_
         #    print("Gradient of implicit layer corresponds to gradient of finite difference approximation")
 
     if model_type == 1:
-        model = ResNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers).to(device).double()
+        model = ResNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers).to(device)
         print("explicit ResNet chosen")
 
     if model_type == 2:
-        model = NewtinImplictNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers).to(device).double()
+        model = NewtonImplicitNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers,device=device).to(device)
+        print("Nonlinear implicit ResNet chosen")
+
 
     if model_type == 3:
         model = TransNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers, epsilon=epsilon, dt=dt,
