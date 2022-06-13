@@ -60,9 +60,9 @@ class ImplicitLayer(nn.Module):
 
         self.in_features = in_features
         self.out_features = out_features
-        self.weight = nn.Parameter(torch.empty((out_features, in_features), dtype=torch.double))  # W^T
+        self.weight = nn.Parameter(torch.empty((out_features, in_features), dtype=torch.float))  # W^T
         if bias:
-            self.bias = nn.Parameter(torch.empty(out_features, dtype=torch.double))
+            self.bias = nn.Parameter(torch.empty(out_features, dtype=torch.float))
         else:
             self.register_parameter('bias', None)
         self.reset_parameters()
@@ -86,7 +86,7 @@ class ImplicitLayer(nn.Module):
 
         with torch.no_grad():
             # 1)  assemble right hand side
-            rhs = x + self.activation(x) + self.bias
+            rhs = x + self.activation(x + self.bias)
             rhs = rhs[:, :, None]  # assemble broadcasted rhs of system
             # 2) Solve system (detached from gradient tape)
             A = torch.transpose(self.weight, 0, 1).repeat(x.shape[0], 1, 1)  # assemble broadcastet matrix of system

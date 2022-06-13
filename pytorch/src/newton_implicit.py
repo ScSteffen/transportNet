@@ -56,6 +56,44 @@ class TanhNewtonImplicitLayer(nn.Module):
         self.tol = tol
         self.max_iter = max_iter
 
+        self.weight = nn.Parameter(torch.empty((out_features, out_features), dtype=torch.float))  # W^T
+        self.bias = nn.Parameter(torch.empty(out_features, dtype=torch.float))
+        self.activation = torch.tanh
+
+    def forward(self, x):
+        # Run Newton's method outside of the autograd framework
+        with torch.no_grad():
+            z = x
+            self.iterations = 0
+            while self.iterations < self.max_iter:
+                # definition of g
+                g = torch.matmul(z, self.weight) - x - self.activation(x) - self.bias
+                self.err = torch.norm(g)
+                if self.err < self.tol:
+                    break
+
+                # newton step
+                J = torch.transpose(self.weight, 0, 1).repeat(x.shape[0], 1, 1)  # assemble broadcastet matrix of system
+
+                z = z - torch.solve(g[:, :, None], J)[0][:, :, 0]
+
+                self.iterations += 1
+
+        # reengage autograd and add the gradient hook
+        # t = z - torch.tanh(self.linear(z) + x)
+        z = z - (torch.matmul(z, self.weight) - x - self.activation(x) - self.bias)
+        if z.requires_grad:
+            z.register_hook(lambda grad: torch.solve(grad[:, :, None], J.transpose(1, 2))[0][:, :, 0])
+        return z
+
+
+class TanhNewtonImplicitLayerOrig(nn.Module):
+    def __init__(self, out_features, tol=1e-4, max_iter=50):
+        super().__init__()
+        self.linear = nn.Linear(out_features, out_features, bias=False)
+        self.tol = tol
+        self.max_iter = max_iter
+
     def forward(self, x):
         # Run Newton's method outside of the autograd framework
         with torch.no_grad():
