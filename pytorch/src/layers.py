@@ -38,6 +38,6 @@ class LinearLayer(nn.Module):
         :param x: Layer input
         :return: Output y of implicit Layer Ay = x + f(x) + b
         """
-        y = torch.matmul(self.activation(x), self.weight) + self.bias
+        y = torch.matmul(x, self.weight) + self.bias
 
         return y

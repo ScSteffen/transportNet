@@ -26,7 +26,7 @@ def train(num_layers, units, epsilon, batch_size, load_model, epochs, model_type
     """
 
     # Setup device
-    device = "cpu"  # "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using {device} device")
 
     # 1) Create network
@@ -48,9 +48,9 @@ def train(num_layers, units, epsilon, batch_size, load_model, epochs, model_type
         model = NewtinImplictNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers).to(device).double()
 
     if model_type == 3:
-        model = TransNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers).to(device).double()
+        model = TransNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers, device=device).to(device)
         print("TransNet chosen")
-        layer = TransNetLayer(in_features=units, out_features=units).double()
+        #layer = TransNetLayer(in_features=units, out_features=units).double()
         # gcheck = gradcheck(layer, torch.randn(batch_size, 2 * units, requires_grad=True, dtype=torch.double),
         #                   check_undefined_grad=False, atol=1e-7)
         # if gcheck:
@@ -117,7 +117,7 @@ def fit(dataloader, model, loss_fn, optimizer, device):
     for batch, (X, y) in enumerate(dataloader):
         X, y = X.to(device), y.to(device)
 
-        X = X.double()
+        #X = X.double()
         # y = y.double()
         # Compute prediction error
         z = torch.flatten(X, start_dim=1)
@@ -155,7 +155,7 @@ def test(dataloader, model, loss_fn, device):
     test_loss, correct = 0, 0
     with torch.no_grad():
         for X, y in dataloader:
-            X, y = X.to(device).double(), y.to(device)
+            X, y = X.to(device), y.to(device)
             pred = model(torch.flatten(X, start_dim=1))
             test_loss += loss_fn(pred, y).item()
             correct += (pred.argmax(1) == y).type(torch.float).sum().item()

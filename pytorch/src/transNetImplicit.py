@@ -6,15 +6,15 @@ from src.layers import LinearLayer
 
 
 class TransNet(nn.Module):
-    def __init__(self, units, input_dim, output_dim, num_layers):
+    def __init__(self, units, input_dim, output_dim, num_layers, device):
         super(TransNet, self).__init__()
         self.num_layers = num_layers
         self.units = units
         self.linearInput = LinearLayer(input_dim, units)
-        self.block1 = TransNetLayer(units, units)
-        self.block2 = TransNetLayer(units, units)
-        self.block3 = TransNetLayer(units, units)
-        self.block4 = TransNetLayer(units, units)
+        self.block1 = TransNetLayer(units, units,device=device)
+        self.block2 = TransNetLayer(units, units,device=device)
+        self.block3 = TransNetLayer(units, units,device=device)
+        self.block4 = TransNetLayer(units, units,device=device)
 
         self.linearOutput = LinearLayer(units, output_dim)
 
@@ -57,14 +57,16 @@ class TransNetLayer(nn.Module):
     in_features: int
     out_features: int
     weight: Tensor
+    #A:Tensor
 
-    def __init__(self, in_features: int, out_features: int, bias: bool = True, device=None, dtype=None) -> None:
+    def __init__(self, in_features: int, out_features: int, bias: bool = True, device="CPU", dtype=None) -> None:
         super().__init__()
 
         self.in_features = in_features
         self.out_features = out_features
-        self.epsilon = 0.01
-        self.dt = 0.1
+        self.epsilon = 0.01*torch.ones(1).to(device)
+        self.dt = 0.1*torch.ones(1).to(device)
+        self.device = device
 
         self.weight = nn.Parameter(torch.empty((out_features, in_features), dtype=torch.float))  # W^T
         if bias:
@@ -101,16 +103,17 @@ class TransNetLayer(nn.Module):
             rhs = rhs[:, :, None]  # assemble broadcasted rhs of system
 
             # 2) Solve system (detached from gradient tape)
-            A = torch.eye(2 * self.out_features).double()
+            A = torch.eye(2 * self.out_features).to(self.device)
             A[:self.out_features, self.out_features:] = self.dt * self.weight
             A[self.out_features:, :self.out_features] = - self.dt * torch.transpose(self.weight, 0, 1)
             A[self.out_features:, self.out_features:] = A[self.out_features:,
                                                         self.out_features:] + self.dt / self.epsilon * torch.eye(
-                self.out_features)
+                self.out_features,device=self.device)
+            
             # print(self.weight)
             # print(A)
             # print(A.T)
-            A = A.repeat(x.shape[0], 1, 1)  # assemble broadcastet matrix of system
+            A = A.repeat(x.shape[0], 1, 1).to(self.device)  # assemble broadcastet matrix of system on device
             # y = torch.linalg.solve(A, rhs)[:, :, 0]
             y = torch.solve(rhs, A)[0][:, :, 0]
 
