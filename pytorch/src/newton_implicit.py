@@ -10,10 +10,10 @@ class NewtinImplictNet(nn.Module):
         super(NewtinImplictNet, self).__init__()
         self.num_layers = num_layers
         self.linearInput = LinearLayer(input_dim, units)
-        self.block1 = TanhNewtonImplicitLayer(out_features=units, tol=1e-4, max_iter=50)
-        self.block2 = TanhNewtonImplicitLayer(out_features=units, tol=1e-4, max_iter=50)
-        self.block3 = TanhNewtonImplicitLayer(out_features=units, tol=1e-4, max_iter=50)
-        self.block4 = TanhNewtonImplicitLayer(out_features=units, tol=1e-4, max_iter=50)
+        self.block1 = TanhNewtonImplicitLayerOrig(out_features=units, tol=1e-4, max_iter=50)
+        self.block2 = TanhNewtonImplicitLayerOrig(out_features=units, tol=1e-4, max_iter=50)
+        self.block3 = TanhNewtonImplicitLayerOrig(out_features=units, tol=1e-4, max_iter=50)
+        self.block4 = TanhNewtonImplicitLayerOrig(out_features=units, tol=1e-4, max_iter=50)
 
         self.linearOutput = LinearLayer(units, output_dim)
 

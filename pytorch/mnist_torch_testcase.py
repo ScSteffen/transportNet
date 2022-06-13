@@ -9,6 +9,7 @@ from optparse import OptionParser
 from src.simple_implicit import ImplicitNet, ImplicitLayer
 from src.resnet import ResNet
 from src.newton_implicit import NewtinImplictNet
+from src.transNetImplicit import TransNet, TransNetLayer
 
 from torch.autograd import gradcheck
 
@@ -31,9 +32,9 @@ def train(num_layers, units, epsilon, batch_size, load_model, epochs, model_type
     # 1) Create network
     if model_type == 0:
         model = ImplicitNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers).to(device).double()
-        print("implicit ResNet chosen")
+        print("implicitNet chosen")
         layer = ImplicitLayer(in_features=2, out_features=2)
-        # gcheck = gradcheck(layer, torch.randn(batch_size, 2, requires_grad=True, dtype=torch.float),
+        # gcheck = gradcheck(layer, torch.randn(batch_size, units, requires_grad=True, dtype=torch.float),
         #                   check_undefined_grad=False,
         #                   atol=1e-7)
         # if gcheck:
@@ -46,12 +47,21 @@ def train(num_layers, units, epsilon, batch_size, load_model, epochs, model_type
     if model_type == 2:
         model = NewtinImplictNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers).to(device).double()
 
+    if model_type == 3:
+        model = TransNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers).to(device).double()
+        print("TransNet chosen")
+        layer = TransNetLayer(in_features=units, out_features=units).double()
+        # gcheck = gradcheck(layer, torch.randn(batch_size, 2 * units, requires_grad=True, dtype=torch.double),
+        #                   check_undefined_grad=False, atol=1e-7)
+        # if gcheck:
+        #    print("Gradient of implicit layer corresponds to gradient of finite difference approximation")
+
     # print(model)
     # 0) Sanitycheck
-    # gcheck = gradcheck(model, torch.randn(batch_size, 784, requires_grad=True, dtype=torch.double),
-    #                   check_undefined_grad=False, atol=1e-7)
-    # if gcheck:
-    #    print("Gradient of model corresponds to gradient of finite difference approximation")
+    gcheck = gradcheck(model, torch.randn(batch_size, 784, requires_grad=True, dtype=torch.double),
+                       check_undefined_grad=False, atol=1e-7)
+    if gcheck:
+        print("Gradient of model corresponds to gradient of finite difference approximation")
 
     # 2)  Create optimizer and loss
     optimizer = torch.optim.Adam(model.parameters())
