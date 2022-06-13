@@ -6,8 +6,9 @@ from torch import nn
 
 from optparse import OptionParser
 
-from src.networks.simple_implicit import ImplicitNet, ImplicitLayer
-from src.networks.resnet import ResNet
+from src.simple_implicit import ImplicitNet, ImplicitLayer
+from src.resnet import ResNet
+from src.newton_implicit import NewtinImplictNet
 
 from torch.autograd import gradcheck
 
@@ -40,6 +41,9 @@ def train(num_layers, units, epsilon, batch_size, load_model, epochs, model_type
     if model_type == 1:
         model = ResNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers).to(device)
         print("explicit ResNet chosen")
+
+    if model_type == 2:
+        model = NewtinImplictNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers).to(device)
 
     # print(model)
     # 0) Sanitycheck

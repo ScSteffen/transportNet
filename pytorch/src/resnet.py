@@ -1,6 +1,7 @@
 import torch
 from torch import nn, Tensor
 import math
+from src.layers import LinearLayer
 
 
 class ResNet(nn.Module):
@@ -8,14 +9,14 @@ class ResNet(nn.Module):
         super(ResNet, self).__init__()
 
         self.num_layers = num_layers
-        self.linearInput = nn.Linear(input_dim, units)
+        self.linearInput = LinearLayer(input_dim, units)
 
         self.resNetBlocks1 = ResNetLayer(units, units)
         self.resNetBlocks2 = ResNetLayer(units, units)
         self.resNetBlocks3 = ResNetLayer(units, units)
         self.resNetBlocks4 = ResNetLayer(units, units)
 
-        self.linearOutput = nn.Linear(units, output_dim)
+        self.linearOutput = LinearLayer(units, output_dim)
 
     def forward(self, x):
         z = self.linearInput(x)

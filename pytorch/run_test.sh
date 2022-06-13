@@ -1,1 +1,1 @@
-python mnist_torch_testcase.py -u 100 -l 0 -t 1 -b 100 -e 1000 -n 10 -x 0.1 -m 1
+python mnist_torch_testcase.py -u 100 -l 0 -t 1 -b 100 -e 1000 -n 10 -x 0.1 -m 2
