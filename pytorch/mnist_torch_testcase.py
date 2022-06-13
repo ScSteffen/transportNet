@@ -30,20 +30,20 @@ def train(num_layers, units, epsilon, batch_size, load_model, epochs, model_type
 
     # 1) Create network
     if model_type == 0:
-        model = ImplicitNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers).to(device)
+        model = ImplicitNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers).to(device).double()
         print("implicit ResNet chosen")
         layer = ImplicitLayer(in_features=2, out_features=2)
-        gcheck = gradcheck(layer, torch.randn(3, 2, requires_grad=True, dtype=torch.double), check_undefined_grad=False,
+        gcheck = gradcheck(layer, torch.randn(3, 2, requires_grad=True, dtype=torch.float), check_undefined_grad=False,
                            atol=1e-7)
         if gcheck:
             print("Gradient of implicit layer corresponds to gradient of finite difference approximation")
 
     if model_type == 1:
-        model = ResNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers).to(device)
+        model = ResNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers).to(device).double()
         print("explicit ResNet chosen")
 
     if model_type == 2:
-        model = NewtinImplictNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers).to(device)
+        model = NewtinImplictNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers).to(device).double()
 
     # print(model)
     # 0) Sanitycheck

@@ -14,9 +14,9 @@ class LinearLayer(nn.Module):
 
         self.in_features = in_features
         self.out_features = out_features
-        self.weight = nn.Parameter(torch.empty((in_features, out_features), dtype=torch.double))
+        self.weight = nn.Parameter(torch.empty((in_features, out_features), dtype=torch.float))
         if bias:
-            self.bias = nn.Parameter(torch.empty(out_features, dtype=torch.double))
+            self.bias = nn.Parameter(torch.empty(out_features, dtype=torch.float))
         else:
             self.register_parameter('bias', None)
         self.reset_parameters()

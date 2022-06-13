@@ -10,19 +10,19 @@ class NewtinImplictNet(nn.Module):
         super(NewtinImplictNet, self).__init__()
         self.num_layers = num_layers
         self.linearInput = LinearLayer(input_dim, units)
-        self.block1 = TanhNewtonImplicitLayer(units, units)
-        self.block2 = TanhNewtonImplicitLayer(units, units)
-        self.block3 = TanhNewtonImplicitLayer(units, units)
-        self.block4 = TanhNewtonImplicitLayer(units, units)
+        self.block1 = TanhNewtonImplicitLayer(out_features=units, tol=1e-4, max_iter=50)
+        # self.block2 = TanhNewtonImplicitLayer(out_features=units, tol=1e-4, max_iter=50)
+        # self.block3 = TanhNewtonImplicitLayer(out_features=units, tol=1e-4, max_iter=50)
+        # self.block4 = TanhNewtonImplicitLayer(out_features=units, tol=1e-4, max_iter=50)
 
         self.linearOutput = LinearLayer(units, output_dim)
 
     def forward(self, x):
         z = self.linearInput(x)
         z = self.block1(z)
-        z = self.block2(z)
-        z = self.block3(z)
-        z = self.block4(z)
+        # z = self.block2(z)
+        # z = self.block3(z)
+        # z = self.block4(z)
         z = self.linearOutput(z)
         logits = nn.Softmax(dim=1)(z)
         return logits
@@ -35,7 +35,7 @@ class NewtinImplictNet(nn.Module):
         #    print(t[i, :])
         # print(self.block1.weight.grad)
         # print(self.block2.weight.grad)
-        print(self.block3.weight.grad)
+        print(self.block1.weight.grad)
         # print(self.block4.weight.grad)
         # print(self.linearOutput.weight.grad)
 
@@ -44,7 +44,7 @@ class NewtinImplictNet(nn.Module):
 
         # print(self.block1.weight)
         # print(self.block2.weight)
-        print(self.block3.weight)
+        print(self.block1.weight)
         # print(self.block4.weight)
         # print(self.linearOutput.weight)
 
