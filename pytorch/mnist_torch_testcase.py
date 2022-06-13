@@ -58,10 +58,10 @@ def train(num_layers, units, epsilon, batch_size, load_model, epochs, model_type
 
     # print(model)
     # 0) Sanitycheck
-    gcheck = gradcheck(model, torch.randn(batch_size, 784, requires_grad=True, dtype=torch.double),
-                       check_undefined_grad=False, atol=1e-7)
-    if gcheck:
-        print("Gradient of model corresponds to gradient of finite difference approximation")
+    #gcheck = gradcheck(model, torch.randn(batch_size, 784, requires_grad=True, dtype=torch.double),
+    #                   check_undefined_grad=False, atol=1e-7)
+    #if gcheck:
+    #    print("Gradient of model corresponds to gradient of finite difference approximation")
 
     # 2)  Create optimizer and loss
     optimizer = torch.optim.Adam(model.parameters())

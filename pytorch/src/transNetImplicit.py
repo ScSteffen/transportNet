@@ -21,8 +21,8 @@ class TransNet(nn.Module):
     def forward(self, x):
         z = self.linearInput(x)
         z = torch.cat((z, self.block1.activation(z)), 1)
-        # z = self.block1(z)
-        # z = self.block2(z)
+        z = self.block1(z)
+        z = self.block2(z)
         z = self.block3(z)
         # z = self.block4(z)
         z = z[:, :self.units]
