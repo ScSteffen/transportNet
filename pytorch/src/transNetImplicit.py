@@ -24,7 +24,7 @@ class TransNet(nn.Module):
         z = self.block1(z)
         z = self.block2(z)
         z = self.block3(z)
-        # z = self.block4(z)
+        z = self.block4(z)
         z = z[:, :self.units]
         z = self.linearOutput(z)
         logits = nn.Softmax(dim=1)(z)
