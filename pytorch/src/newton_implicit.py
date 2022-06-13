@@ -11,18 +11,18 @@ class NewtinImplictNet(nn.Module):
         self.num_layers = num_layers
         self.linearInput = LinearLayer(input_dim, units)
         self.block1 = TanhNewtonImplicitLayer(out_features=units, tol=1e-4, max_iter=50)
-        # self.block2 = TanhNewtonImplicitLayer(out_features=units, tol=1e-4, max_iter=50)
-        # self.block3 = TanhNewtonImplicitLayer(out_features=units, tol=1e-4, max_iter=50)
-        # self.block4 = TanhNewtonImplicitLayer(out_features=units, tol=1e-4, max_iter=50)
+        self.block2 = TanhNewtonImplicitLayer(out_features=units, tol=1e-4, max_iter=50)
+        self.block3 = TanhNewtonImplicitLayer(out_features=units, tol=1e-4, max_iter=50)
+        self.block4 = TanhNewtonImplicitLayer(out_features=units, tol=1e-4, max_iter=50)
 
         self.linearOutput = LinearLayer(units, output_dim)
 
     def forward(self, x):
         z = self.linearInput(x)
         z = self.block1(z)
-        # z = self.block2(z)
-        # z = self.block3(z)
-        # z = self.block4(z)
+        z = self.block2(z)
+        z = self.block3(z)
+        z = self.block4(z)
         z = self.linearOutput(z)
         logits = nn.Softmax(dim=1)(z)
         return logits

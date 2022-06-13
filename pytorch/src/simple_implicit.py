@@ -20,7 +20,7 @@ class ImplicitNet(nn.Module):
     def forward(self, x):
         z = self.linearInput(x)
         # z = self.block1(z)
-        # z = self.block2(z)
+        z = self.block2(z)
         z = self.block3(z)
         # z = self.block4(z)
         z = self.linearOutput(z)
