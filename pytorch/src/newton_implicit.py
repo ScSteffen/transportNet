@@ -76,5 +76,6 @@ class TanhNewtonImplicitLayer(nn.Module):
 
         # reengage autograd and add the gradient hook
         z = torch.tanh(self.linear(z) + x)
-        z.register_hook(lambda grad: torch.solve(grad[:, :, None], J.transpose(1, 2))[0][:, :, 0])
+        if z.requires_grad:
+            z.register_hook(lambda grad: torch.solve(grad[:, :, None], J.transpose(1, 2))[0][:, :, 0])
         return z
