@@ -35,7 +35,7 @@ class NewtinImplictNet(nn.Module):
         #    print(t[i, :])
         # print(self.block1.weight.grad)
         # print(self.block2.weight.grad)
-        print(self.block1.weight.grad)
+        print(self.block1.linear.weight.grad)
         # print(self.block4.weight.grad)
         # print(self.linearOutput.weight.grad)
 
@@ -44,7 +44,7 @@ class NewtinImplictNet(nn.Module):
 
         # print(self.block1.weight)
         # print(self.block2.weight)
-        print(self.block1.weight)
+        print(self.block1.linear.weight)
         # print(self.block4.weight)
         # print(self.linearOutput.weight)
 
@@ -76,6 +76,7 @@ class TanhNewtonImplicitLayer(nn.Module):
                 self.iterations += 1
 
         # reengage autograd and add the gradient hook
+        # t = z - torch.tanh(self.linear(z) + x)
         z = torch.tanh(self.linear(z) + x)
         if z.requires_grad:
             z.register_hook(lambda grad: torch.solve(grad[:, :, None], J.transpose(1, 2))[0][:, :, 0])

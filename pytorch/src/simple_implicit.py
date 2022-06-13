@@ -19,10 +19,10 @@ class ImplicitNet(nn.Module):
 
     def forward(self, x):
         z = self.linearInput(x)
-        z = self.block1(z)
-        z = self.block2(z)
+        # z = self.block1(z)
+        # z = self.block2(z)
         z = self.block3(z)
-        z = self.block4(z)
+        # z = self.block4(z)
         z = self.linearOutput(z)
         logits = nn.Softmax(dim=1)(z)
         return logits
@@ -90,7 +90,8 @@ class ImplicitLayer(nn.Module):
             rhs = rhs[:, :, None]  # assemble broadcasted rhs of system
             # 2) Solve system (detached from gradient tape)
             A = torch.transpose(self.weight, 0, 1).repeat(x.shape[0], 1, 1)  # assemble broadcastet matrix of system
-            y = torch.linalg.solve(A, rhs)[:, :, 0]
+            # y = torch.linalg.solve(A, rhs)[:, :, 0]
+            y = torch.solve(rhs, A)[0][:, :, 0]
 
         # 3)  reengage autograd and add the gradient hook
         # t = torch.matmul(y, self.weight) - x - self.activation(x) - self.bias
@@ -100,5 +101,5 @@ class ImplicitLayer(nn.Module):
         #   Let g = Ay - (x + f(x) + b) (layer in fixed point notation). Then grad = dg/dx.
         #   We need gradient dy/dx, using dg/dy*dy/dx =dg/dy with A=dg/dy
         if y.requires_grad:
-            y.register_hook(lambda grad: torch.linalg.solve(A.transpose(1, 2), grad[:, :, None])[:, :, 0])
+            y.register_hook(lambda grad: torch.solve(grad[:, :, None], A.transpose(1, 2))[0][:, :, 0])
         return y
