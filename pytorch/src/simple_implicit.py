@@ -60,7 +60,7 @@ class ImplicitLayer(nn.Module):
 
         self.in_features = in_features
         self.out_features = out_features
-        self.weight = nn.Parameter(torch.empty((in_features, out_features), dtype=torch.double))
+        self.weight = nn.Parameter(torch.empty((out_features, in_features), dtype=torch.double))  # W^T
         if bias:
             self.bias = nn.Parameter(torch.empty(out_features, dtype=torch.double))
         else:
@@ -83,23 +83,22 @@ class ImplicitLayer(nn.Module):
         :param x: Layer input
         :return: Output y of implicit Layer Ay = x + f(x) + b
         """
-        # 1)  assemble right hand side
-        rhs = x + self.activation(x) + self.bias
 
-        # 2) Solve system (detached from gradient tape)
         with torch.no_grad():
-            # Due to the first dimension being the batch dimenstion,  and pytorchs matmul convetion of zA
-            # we need to transpose the linear system before solving
-            y = torch.linalg.solve(torch.transpose(self.weight, 0, 1), torch.transpose(rhs, 0, 1))
-            y = torch.transpose(y, 0, 1)
+            # 1)  assemble right hand side
+            rhs = x + self.activation(x) + self.bias
+            rhs = rhs[:, :, None]  # assemble broadcasted rhs of system
+            # 2) Solve system (detached from gradient tape)
+            A = torch.transpose(self.weight, 0, 1).repeat(x.shape[0], 1, 1)  # assemble broadcastet matrix of system
+            y = torch.linalg.solve(A, rhs)[:, :, 0]
 
         # 3)  reengage autograd and add the gradient hook
+        # t = torch.matmul(y, self.weight) - x - self.activation(x) - self.bias
         y = y - (torch.matmul(y, self.weight) - x - self.activation(x) - self.bias)
 
         # 4) Use implicit function theorem (or adjoint equation of the KKT system to compute the real gradient)
         #   Let g = Ay - (x + f(x) + b) (layer in fixed point notation). Then grad = dg/dx.
         #   We need gradient dy/dx, using dg/dy*dy/dx =dg/dy with A=dg/dy
         if y.requires_grad:
-            y.register_hook(lambda grad: torch.transpose(
-                torch.linalg.solve(self.weight, torch.transpose(grad, 0, 1)), 0, 1))
+            y.register_hook(lambda grad: torch.linalg.solve(A.transpose(1, 2), grad[:, :, None])[:, :, 0])
         return y

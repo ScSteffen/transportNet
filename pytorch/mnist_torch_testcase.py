@@ -33,10 +33,11 @@ def train(num_layers, units, epsilon, batch_size, load_model, epochs, model_type
         model = ImplicitNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers).to(device).double()
         print("implicit ResNet chosen")
         layer = ImplicitLayer(in_features=2, out_features=2)
-        gcheck = gradcheck(layer, torch.randn(3, 2, requires_grad=True, dtype=torch.float), check_undefined_grad=False,
-                           atol=1e-7)
-        if gcheck:
-            print("Gradient of implicit layer corresponds to gradient of finite difference approximation")
+        # gcheck = gradcheck(layer, torch.randn(batch_size, 2, requires_grad=True, dtype=torch.float),
+        #                   check_undefined_grad=False,
+        #                   atol=1e-7)
+        # if gcheck:
+        #    print("Gradient of implicit layer corresponds to gradient of finite difference approximation")
 
     if model_type == 1:
         model = ResNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers).to(device).double()
@@ -47,10 +48,10 @@ def train(num_layers, units, epsilon, batch_size, load_model, epochs, model_type
 
     # print(model)
     # 0) Sanitycheck
-    gcheck = gradcheck(model, torch.randn(3, 784, requires_grad=True, dtype=torch.double), check_undefined_grad=False,
-                       atol=1e-7)
-    if gcheck:
-        print("Gradient of model corresponds to gradient of finite difference approximation")
+    # gcheck = gradcheck(model, torch.randn(batch_size, 784, requires_grad=True, dtype=torch.double),
+    #                   check_undefined_grad=False, atol=1e-7)
+    # if gcheck:
+    #    print("Gradient of model corresponds to gradient of finite difference approximation")
 
     # 2)  Create optimizer and loss
     optimizer = torch.optim.Adam(model.parameters())

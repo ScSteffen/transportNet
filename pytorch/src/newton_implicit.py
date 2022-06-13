@@ -72,6 +72,7 @@ class TanhNewtonImplicitLayer(nn.Module):
                 J = torch.eye(z.shape[1])[None, :, :] - (1 / torch.cosh(z_linear) ** 2)[:, :,
                                                         None] * self.linear.weight[None, :, :]
                 z = z - torch.solve(g[:, :, None], J)[0][:, :, 0]
+
                 self.iterations += 1
 
         # reengage autograd and add the gradient hook
