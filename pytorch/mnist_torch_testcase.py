@@ -14,7 +14,7 @@ from src.transNetImplicit import TransNet, TransNetLayer
 from torch.autograd import gradcheck
 
 
-def train(num_layers, units, epsilon, batch_size, load_model, epochs, model_type):
+def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_type):
     """
     :param num_layers:
     :param units:
@@ -48,9 +48,10 @@ def train(num_layers, units, epsilon, batch_size, load_model, epochs, model_type
         model = NewtinImplictNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers).to(device).double()
 
     if model_type == 3:
-        model = TransNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers, device=device).to(device)
+        model = TransNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers, epsilon=epsilon, dt=dt,
+                         device=device).to(device)
         print("TransNet chosen")
-        #layer = TransNetLayer(in_features=units, out_features=units).double()
+        # layer = TransNetLayer(in_features=units, out_features=units).double()
         # gcheck = gradcheck(layer, torch.randn(batch_size, 2 * units, requires_grad=True, dtype=torch.double),
         #                   check_undefined_grad=False, atol=1e-7)
         # if gcheck:
@@ -58,9 +59,9 @@ def train(num_layers, units, epsilon, batch_size, load_model, epochs, model_type
 
     # print(model)
     # 0) Sanitycheck
-    #gcheck = gradcheck(model, torch.randn(batch_size, 784, requires_grad=True, dtype=torch.double),
+    # gcheck = gradcheck(model, torch.randn(batch_size, 784, requires_grad=True, dtype=torch.double),
     #                   check_undefined_grad=False, atol=1e-7)
-    #if gcheck:
+    # if gcheck:
     #    print("Gradient of model corresponds to gradient of finite difference approximation")
 
     # 2)  Create optimizer and loss
@@ -117,7 +118,7 @@ def fit(dataloader, model, loss_fn, optimizer, device):
     for batch, (X, y) in enumerate(dataloader):
         X, y = X.to(device), y.to(device)
 
-        #X = X.double()
+        # X = X.double()
         # y = y.double()
         # Compute prediction error
         z = torch.flatten(X, start_dim=1)
@@ -178,6 +179,7 @@ if __name__ == '__main__':
     parser.add_option("-e", "--epochs", dest="epochs", default=100)
     parser.add_option("-n", "--num_layers", dest="num_layers", default=100)
     parser.add_option("-m", "--model_type", dest="model_type", default=0)
+    parser.add_option("-d", "--time_step", dest="dt", default=1)
 
     (options, args) = parser.parse_args()
     options.units = int(options.units)
@@ -188,8 +190,9 @@ if __name__ == '__main__':
     options.epochs = int(options.epochs)
     options.num_layers = int(options.num_layers)
     options.model_type = int(options.model_type)
+    options.dt = float(options.dt)
 
     if options.train == 1:
         train(num_layers=options.num_layers, units=options.units, epsilon=options.epsilon,
               batch_size=options.batch_size, load_model=options.load_model, epochs=options.epochs,
-              model_type=options.model_type)
+              model_type=options.model_type, dt=options.dt)

@@ -10,11 +10,13 @@ class TransNet(nn.Module):
         super(TransNet, self).__init__()
         self.num_layers = num_layers
         self.units = units
+        self.epsilon = epsilon
+        self.dt = dt
         self.linearInput = LinearLayer(input_dim, units)
-        self.block1 = TransNetLayer(units, units, epsilon=epsilon, dt=dt, device=device)
-        self.block2 = TransNetLayer(units, units, epsilon=epsilon, dt=dt, device=device)
-        self.block3 = TransNetLayer(units, units, epsilon=epsilon, dt=dt, device=device)
-        self.block4 = TransNetLayer(units, units, epsilon=epsilon, dt=dt, device=device)
+        self.block1 = TransNetLayerSweeping(units, units, epsilon=epsilon, dt=dt, device=device)
+        self.block2 = TransNetLayerSweeping(units, units, epsilon=epsilon, dt=dt, device=device)
+        self.block3 = TransNetLayerSweeping(units, units, epsilon=epsilon, dt=dt, device=device)
+        self.block4 = TransNetLayerSweeping(units, units, epsilon=epsilon, dt=dt, device=device)
 
         self.linearOutput = LinearLayer(units, output_dim)
 
@@ -52,7 +54,7 @@ class TransNet(nn.Module):
         # print(self.linearOutput.weight)
 
 
-class TransNetLayer(nn.Module):
+class TransNetLayerSweeping(nn.Module):
     __constants__ = ['in_features', 'out_features']
     in_features: int
     out_features: int
