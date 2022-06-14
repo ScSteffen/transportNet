@@ -118,7 +118,8 @@ class TransNetLayer(nn.Module):
             A = A.repeat(x.shape[0], 1, 1).to(self.device)  # assemble broadcastet matrix of system on device
             # y = torch.linalg.solve(A, rhs)[:, :, 0]
             y = torch.solve(rhs, A)[0][:, :, 0]
-
+            
+            w = self.weight.clone().detach().requires_grad_(False) # copy weights for forward pass, such that only the parameters of the first relaxation equation is used for gradient updates
         # 3)  reengage autograd and add the gradient hook
 
         t = torch.matmul(y, torch.transpose(A[0], 0, 1)) - rhs[:, :, 0]
@@ -130,7 +131,7 @@ class TransNetLayer(nn.Module):
         u_out = self.dt * torch.matmul(v, self.weight.T) - u_in - self.dt * self.bias
 
         # b) v part
-        v_out = - self.dt * torch.matmul(u, self.weight) + \
+        v_out = - self.dt * torch.matmul(u, w) + \
                 self.dt / self.epsilon * v - v_in - self.dt / self.epsilon * self.activation(u_in)
 
         y = torch.cat((u_out, v_out), 1)
