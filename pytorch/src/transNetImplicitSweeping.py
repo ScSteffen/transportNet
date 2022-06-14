@@ -79,7 +79,7 @@ class TransNetLayerSweeping(nn.Module):
         else:
             self.register_parameter('bias', None)
         self.reset_parameters()
-        self.activation = nn.ReLU()
+        self.activation = nn.Tanh()
 
     def reset_parameters(self) -> None:
         # Setting a=sqrt(5) in kaiming_uniform is the same as initializing with
