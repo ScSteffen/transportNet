@@ -10,7 +10,7 @@ from src.simple_implicit import ImplicitNet, ImplicitLayer
 from src.resnet import ResNet
 from src.newton_implicit import NewtonImplicitNet
 from src.transNetImplicit import TransNet, TransNetLayer
-
+from src.transNetImplicitSweeping import TransNetSweeping
 from torch.autograd import gradcheck
 
 
@@ -30,7 +30,7 @@ def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_
     print(f"Using {device} device")
     print("model type")
     print(model_type)
-    
+
     # 1) Create network
     if model_type == 0:
         model = ImplicitNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers).to(device)
@@ -47,9 +47,9 @@ def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_
         print("explicit ResNet chosen")
 
     if model_type == 2:
-        model = NewtonImplicitNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers,device=device).to(device)
+        model = NewtonImplicitNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers, device=device).to(
+            device)
         print("Nonlinear implicit ResNet chosen")
-
 
     if model_type == 3:
         model = TransNet(units=units, input_dim=784, output_dim=10, num_layers=num_layers, epsilon=epsilon, dt=dt,
@@ -61,6 +61,15 @@ def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_
         # if gcheck:
         #    print("Gradient of implicit layer corresponds to gradient of finite difference approximation")
 
+    if model_type == 4:
+        model = TransNetSweeping(units=units, input_dim=784, output_dim=10, num_layers=num_layers, epsilon=epsilon,
+                                 dt=dt, device=device).to(device)
+        print("TransNet with sweeping chosen")
+        # layer = TransNetLayer(in_features=units, out_features=units).double()
+        # gcheck = gradcheck(layer, torch.randn(batch_size, 2 * units, requires_grad=True, dtype=torch.double),
+        #                   check_undefined_grad=False, atol=1e-7)
+        # if gcheck:
+        #    print("Gradient of implicit layer corresponds to gradient of finite difference approximation")
     # print(model)
     # 0) Sanitycheck
     # gcheck = gradcheck(model, torch.randn(batch_size, 784, requires_grad=True, dtype=torch.double),

@@ -5,9 +5,9 @@ import math
 from src.layers import LinearLayer
 
 
-class TransNet(nn.Module):
+class TransNetSweeping(nn.Module):
     def __init__(self, units, input_dim, output_dim, num_layers, epsilon, dt, device):
-        super(TransNet, self).__init__()
+        super(TransNetSweeping, self).__init__()
         self.num_layers = num_layers
         self.units = units
         self.epsilon = epsilon
@@ -23,10 +23,11 @@ class TransNet(nn.Module):
     def forward(self, x):
         z = self.linearInput(x)
         z = torch.cat((z, self.block1.activation(z)), 1)
-        z = self.block1(z)
-        z = self.block2(z)
-        z = self.block3(z)
-        # z = self.block4(z)
+        sweep = torch.zeros(self.units * 2)[None, :]
+        z, sweep = self.block1(z, sweep)
+        z, sweep = self.block2(z, sweep)
+        z, sweep = self.block3(z, sweep)
+        z, sweep = self.block4(z, sweep)
         z = z[:, :self.units]
         z = self.linearOutput(z)
         logits = nn.Softmax(dim=1)(z)
@@ -90,7 +91,7 @@ class TransNetLayerSweeping(nn.Module):
             bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
             nn.init.uniform_(self.bias, -bound, bound)
 
-    def forward(self, x):
+    def forward(self, x, sweep):
         """
         :param x: Layer input
         :return: Output y of implicit Layer Ay = x + f(x) + b
@@ -102,7 +103,8 @@ class TransNetLayerSweeping(nn.Module):
 
             u_in = x[:, :self.out_features]
             v_in = x[:, self.out_features:]
-            rhs = torch.cat((u_in + self.dt * self.bias, v_in + self.dt / self.epsilon * self.activation(u_in)), 1)
+            rhs = torch.cat((u_in + self.dt * self.bias, v_in + self.dt / self.epsilon * self.activation(u_in)),
+                            1) - sweep
 
             rhs = rhs[:, :, None]  # assemble broadcasted rhs of system
 
@@ -114,32 +116,28 @@ class TransNetLayerSweeping(nn.Module):
                                                         self.out_features:] + self.dt / self.epsilon * torch.eye(
                 self.out_features, device=self.device)
 
-            # print(self.weight)
-            # print(A)
-            # print(A.T)
             A = A.repeat(x.shape[0], 1, 1).to(self.device)  # assemble broadcastet matrix of system on device
-            # y = torch.linalg.solve(A, rhs)[:, :, 0]
+
             y = torch.solve(rhs, A)[0][:, :, 0]
 
         # 3)  reengage autograd and add the gradient hook
-
-        t = torch.matmul(y, torch.transpose(A[0], 0, 1)) - rhs[:, :, 0]
-        # B = torch.transpose(A[0], 0, 1)
-        # print(B)
-        # a) u part
         u = y[:, :self.out_features]
         v = y[:, self.out_features:]
+        # a) u part
         u_out = self.dt * torch.matmul(v, self.weight.T) - u_in - self.dt * self.bias
-
         # b) v part
         v_out = - self.dt * torch.matmul(u, self.weight) + \
                 self.dt / self.epsilon * v - v_in - self.dt / self.epsilon * self.activation(u_in)
 
+        # Assemble layer solution vector
         y = torch.cat((u_out, v_out), 1)
 
-        # 4) Use implicit function theorem (or adjoint equation of the KKT system to compute the real gradient)
+        # 4) Assemble sweep for next layer
+        sweep = sweep + torch.matmul(y, torch.transpose(A[0], 0, 1))
+
+        # 5) Use implicit function theorem (or adjoint equation of the KKT system to compute the real gradient)
         #   Let g = Ay - (x + f(x) + b) (layer in fixed point notation). Then grad = dg/dx.
         #   We need gradient dy/dx, using dg/dy*dy/dx =dg/dy with A=dg/dy
         if y.requires_grad:
             y.register_hook(lambda grad: torch.solve(grad[:, :, None], A.transpose(1, 2))[0][:, :, 0])
-        return y
+        return y, sweep

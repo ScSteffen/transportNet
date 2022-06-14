@@ -111,28 +111,18 @@ class TransNetLayer(nn.Module):
             A[self.out_features:, self.out_features:] = A[self.out_features:,
                                                         self.out_features:] + self.dt / self.epsilon * torch.eye(
                 self.out_features, device=self.device)
-
-            # print(self.weight)
-            # print(A)
-            # print(A.T)
             A = A.repeat(x.shape[0], 1, 1).to(self.device)  # assemble broadcastet matrix of system on device
-            # y = torch.linalg.solve(A, rhs)[:, :, 0]
             y = torch.solve(rhs, A)[0][:, :, 0]
 
         # 3)  reengage autograd and add the gradient hook
-
-        t = torch.matmul(y, torch.transpose(A[0], 0, 1)) - rhs[:, :, 0]
-        # B = torch.transpose(A[0], 0, 1)
-        # print(B)
-        # a) u part
         u = y[:, :self.out_features]
         v = y[:, self.out_features:]
+        # a) u part
         u_out = self.dt * torch.matmul(v, self.weight.T) - u_in - self.dt * self.bias
-
         # b) v part
         v_out = - self.dt * torch.matmul(u, self.weight) + \
                 self.dt / self.epsilon * v - v_in - self.dt / self.epsilon * self.activation(u_in)
-
+        # Assemble layer solution vector
         y = torch.cat((u_out, v_out), 1)
 
         # 4) Use implicit function theorem (or adjoint equation of the KKT system to compute the real gradient)
