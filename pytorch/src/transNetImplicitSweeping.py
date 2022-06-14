@@ -12,6 +12,7 @@ class TransNetSweeping(nn.Module):
         self.units = units
         self.epsilon = epsilon
         self.dt = dt
+        self.device=device
         self.linearInput = LinearLayer(input_dim, units)
         self.block1 = TransNetLayerSweeping(units, units, epsilon=epsilon, dt=dt, device=device)
         self.block2 = TransNetLayerSweeping(units, units, epsilon=epsilon, dt=dt, device=device)
