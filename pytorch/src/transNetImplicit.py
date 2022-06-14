@@ -60,7 +60,7 @@ class TransNetLayer(nn.Module):
 
     # A:Tensor
 
-    def __init__(self, in_features: int, out_features: int, bias: bool = True, epsilon=0.01, dt=0.1, device="CPU",
+    def __init__(self, in_features: int, out_features: int, bias: bool = True, epsilon=0.01, dt=0.1, device="cpu",
                  dtype=None) -> None:
         super().__init__()
 
@@ -95,17 +95,16 @@ class TransNetLayer(nn.Module):
         """
 
         # y = x
+        u_in = x[:, :self.out_features]
+        v_in = x[:, self.out_features:]
+
         with torch.no_grad():
             # 1)  assemble right hand side (relaxation step)
-
-            u_in = x[:, :self.out_features]
-            v_in = x[:, self.out_features:]
             rhs = torch.cat((u_in + self.dt * self.bias, v_in + self.dt / self.epsilon * self.activation(u_in)), 1)
-
             rhs = rhs[:, :, None]  # assemble broadcasted rhs of system
 
             # 2) Solve system (detached from gradient tape)
-            A = torch.eye(2 * self.out_features).to(self.device)
+            A = torch.eye(2 * self.out_features).to(self.device)  # .double()
             A[:self.out_features, self.out_features:] = self.dt * self.weight
             A[self.out_features:, :self.out_features] = - self.dt * torch.transpose(self.weight, 0, 1)
             A[self.out_features:, self.out_features:] = A[self.out_features:,
@@ -113,15 +112,18 @@ class TransNetLayer(nn.Module):
                 self.out_features, device=self.device)
             A = A.repeat(x.shape[0], 1, 1).to(self.device)  # assemble broadcastet matrix of system on device
             y = torch.solve(rhs, A)[0][:, :, 0]
-            
-            w = self.weight.clone().detach().requires_grad_(False) # copy weights for forward pass, such that only the parameters of the first relaxation equation is used for gradient updates
+
+            w = self.weight.clone().detach().requires_grad_(
+                False)  # copy weights for forward pass, such that only the parameters of the first relaxation equation is used for gradient updates
         # 3)  reengage autograd and add the gradient hook
         u = y[:, :self.out_features]
         v = y[:, self.out_features:]
         # a) u part
         u_out = self.dt * torch.matmul(v, self.weight.T) - u_in - self.dt * self.bias
         # b) v part
-        v_out = - self.dt * torch.matmul(u, w) +  self.dt / self.epsilon * v - v_in - self.dt / self.epsilon * self.activation(u_in)
+        v_out = - self.dt * torch.matmul(u, w) + \
+                self.dt / self.epsilon * v - v_in - self.dt / self.epsilon * self.activation(u_in)
+
         # Assemble layer solution vector
         y = torch.cat((u_out, v_out), 1)
 
