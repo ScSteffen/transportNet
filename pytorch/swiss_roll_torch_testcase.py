@@ -6,8 +6,11 @@ from optparse import OptionParser
 from src.bake_swiss_rolls import create_dataset
 from src.utils import create_model, fit, test
 
+import numpy as np
+import matplotlib.pyplot as plt
 
-def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_type):
+
+def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_type, plotting=False):
     """
     :param num_layers: numbre of layers
     :param units: neurons per layer
@@ -47,6 +50,22 @@ def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_
     my_dataset = TensorDataset(tensor_x, tensor_y)  # create your datset
     test_dataloader = DataLoader(my_dataset, batch_size=batch_size)
 
+    n_grid = 50
+    whole_space = np.zeros(shape=(n_grid, n_grid, 2))
+    dx = 0.05
+    c_i = 0
+    c_j = 0
+    for i in np.linspace(-1, 1, n_grid):
+        for j in np.linspace(-1, 1, n_grid):
+            whole_space[c_i, c_j, :] = np.asarray([i, j])
+            c_j += 1
+        c_i += 1
+        c_j = 0
+    whole_space_torch = torch.Tensor(np.reshape(whole_space, newshape=(n_grid ** 2, 2))).to(device)
+
+    (x_train_plot, y_train_plot), _ = create_dataset(num_samples=200, test_rate=0.0, plotting=False,
+                                                     shuffle=False)
+
     for X, y in test_dataloader:
         print(f"Shape of X [batch, dim]: {X.shape}")
         print(f"Shape of y: {y.shape} {y.dtype}")
@@ -57,6 +76,8 @@ def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_
         print(f"Epoch {t + 1}\n-------------------------------")
         fit(train_dataloader, model, loss_fn, optimizer, device)
         test(test_dataloader, model, loss_fn, device)
+        if plotting:
+            print_current_evaluation(x_train_plot, whole_space_torch, n_grid, model, t + 1, model_nr=model_type)
     print("Done!")
 
     # 3) Call network
@@ -65,6 +86,37 @@ def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_
     y_pred = pred_probab.argmax(1)
     print(f"Predicted class: {y_pred}")
 
+    return 0
+
+
+def print_current_evaluation(train_x, whole_space_torch, n_grid, model, iter, model_nr):
+    pred = model(torch.flatten(whole_space_torch, start_dim=1))
+    pred_class = pred.argmax(1).numpy().reshape(n_grid, n_grid)
+
+    tx = np.linspace(1, -1, n_grid)
+    ty = np.linspace(-1, 1, n_grid)
+    y, x = np.meshgrid(tx, ty)
+    z = pred_class
+    # z[:20, :20] = np.zeros((20, 20))
+    # z = z[:-1, :-1]
+    # z_min, z_max = -np.abs(z).max(), np.abs(z).max()
+
+    c = plt.imshow(np.transpose(z), cmap='RdGy', vmin=0, vmax=1, extent=[x.min(), x.max(), y.min(), y.max()],
+                   interpolation='none',
+                   origin='lower')
+    plt.colorbar(c)
+
+    plt.title('prediction and training data', fontweight="bold")
+
+    n_data = int(len(train_x) / 2)
+    plt.plot(train_x[:n_data, 0], train_x[:n_data, 1], "r")
+    plt.plot(train_x[n_data:, 0], train_x[n_data:, 1], "k")
+    plt.xlim((-1, 1))
+    plt.ylim((-1, 1))
+
+    # plt.show()
+    plt.savefig("results/swiss_roll_model_" + str(model_nr) + "/img_" + str(iter) + ".png", dpi=500)
+    plt.clf()
     return 0
 
 
@@ -82,6 +134,7 @@ if __name__ == '__main__':
     parser.add_option("-n", "--num_layers", dest="num_layers", default=100)
     parser.add_option("-m", "--model_type", dest="model_type", default=0)
     parser.add_option("-d", "--time_step", dest="dt", default=1)
+    parser.add_option("-p", "--plotting", dest="plotting", default=1)
 
     (options, args) = parser.parse_args()
     options.units = int(options.units)
@@ -93,8 +146,9 @@ if __name__ == '__main__':
     options.num_layers = int(options.num_layers)
     options.model_type = int(options.model_type)
     options.dt = float(options.dt)
+    options.plotting = bool(options.dt)
 
     if options.train == 1:
         train(num_layers=options.num_layers, units=options.units, epsilon=options.epsilon,
               batch_size=options.batch_size, load_model=options.load_model, epochs=options.epochs,
-              model_type=options.model_type, dt=options.dt)
+              model_type=options.model_type, dt=options.dt, plotting=options.plotting)

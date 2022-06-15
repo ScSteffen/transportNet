@@ -1,7 +1,8 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 
-def create_dataset(num_samples: int = 1000, test_rate=0.1):
+def create_dataset(num_samples: int = 1000, test_rate=0.1, plotting=False, shuffle=True):
     """
     :brief creates a dataset, with 50-50 class balance
 
@@ -38,13 +39,18 @@ def create_dataset(num_samples: int = 1000, test_rate=0.1):
 
     inner_roll, inner_labels = f1(x)
     outer_roll, outer_labels = f2(x)
+
+    if plotting:
+        plt.plot(inner_roll[:, 0], inner_roll[:, 1], "r")
+        plt.plot(outer_roll[:, 0], outer_roll[:, 1], "k")
+        plt.show()
     data = np.concatenate([inner_roll, outer_roll], axis=0)
     labels = np.concatenate([inner_labels, outer_labels], axis=0)
 
-    shuffler = np.random.permutation(2 * num_samples)
+    if shuffle:
+        shuffler = np.random.permutation(2 * num_samples)
+        data = data[shuffler]
+        labels = labels[shuffler]
 
-    data = data[shuffler]
-    labels = labels[shuffler]
-
-    return (data[:int(test_rate * 2 * num_samples)], labels[:int(test_rate * 2 * num_samples)]), (
-        data[int(test_rate * 2 * num_samples):], labels[int(test_rate * 2 * num_samples):])
+    return (data[int(test_rate * 2 * num_samples):], labels[int(test_rate * 2 * num_samples):]), (
+        data[:int(test_rate * 2 * num_samples)], labels[:int(test_rate * 2 * num_samples)])
