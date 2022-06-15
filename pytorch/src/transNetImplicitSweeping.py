@@ -24,7 +24,7 @@ class TransNetSweeping(nn.Module):
     def forward(self, x):
         z = self.linearInput(x)
         z = torch.cat((z, self.block1.activation(z)), 1)
-        sweep = torch.zeros(self.units * 2)[None, :]
+        sweep = torch.zeros(self.units * 2)[None, :].to(self.device)
         z, sweep = self.block1(z, sweep)
         z, sweep = self.block2(z, sweep)
         z, sweep = self.block3(z, sweep)
