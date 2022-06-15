@@ -93,15 +93,8 @@ def print_current_evaluation(train_x, whole_space_torch, n_grid, model, iter, mo
     pred = model(torch.flatten(whole_space_torch, start_dim=1))
     pred_class = pred.argmax(1).numpy().reshape(n_grid, n_grid)
 
-    tx = np.linspace(1, -1, n_grid)
-    ty = np.linspace(-1, 1, n_grid)
-    y, x = np.meshgrid(tx, ty)
     z = pred_class
-    # z[:20, :20] = np.zeros((20, 20))
-    # z = z[:-1, :-1]
-    # z_min, z_max = -np.abs(z).max(), np.abs(z).max()
-
-    c = plt.imshow(np.transpose(z), cmap='RdGy', vmin=0, vmax=1, extent=[x.min(), x.max(), y.min(), y.max()],
+    c = plt.imshow(np.transpose(z), cmap='RdGy', vmin=0, vmax=1, extent=[-1, 1, -1, 1],
                    interpolation='none',
                    origin='lower')
     plt.colorbar(c)
