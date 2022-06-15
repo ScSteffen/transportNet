@@ -36,7 +36,7 @@ def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_
 
     # 3) Create Dataset
 
-    (x_train, y_train), (x_test, y_test) = create_dataset()
+    (x_train, y_train), (x_test, y_test) = create_dataset(num_samples=10000)
 
     tensor_x = torch.Tensor(x_train)  # transform to torch tensor
     tensor_y = torch.Tensor(y_train.reshape(y_train.shape[0], )).type(torch.LongTensor)
@@ -50,7 +50,7 @@ def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_
     my_dataset = TensorDataset(tensor_x, tensor_y)  # create your datset
     test_dataloader = DataLoader(my_dataset, batch_size=batch_size)
 
-    n_grid = 50
+    n_grid = 100
     whole_space = np.zeros(shape=(n_grid, n_grid, 2))
     dx = 0.05
     c_i = 0
@@ -91,7 +91,7 @@ def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_
 
 def print_current_evaluation(train_x, whole_space_torch, n_grid, model, iter, model_nr):
     pred = model(torch.flatten(whole_space_torch, start_dim=1))
-    pred_class = pred.argmax(1).numpy().reshape(n_grid, n_grid)
+    pred_class = pred.argmax(1).cpu().numpy().reshape(n_grid, n_grid)
 
     tx = np.linspace(1, -1, n_grid)
     ty = np.linspace(-1, 1, n_grid)
