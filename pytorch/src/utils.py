@@ -2,6 +2,7 @@ from src.simple_implicit import ImplicitNet, ImplicitLayer
 from src.resnet import ResNet
 from src.newton_implicit import NewtonImplicitNet
 from src.transNetImplicit import TransNet, TransNetLayer
+from src.transNetExplicit import TransNetExplicit
 from src.transNetImplicit_split2 import TransNetSplit2, TransNetLayerSplit2
 from src.transNetImplicitSweeping import TransNetSweeping
 from torch.autograd import gradcheck
@@ -72,11 +73,12 @@ def create_model(model_type: int = 0, units: int = 10, num_layers: int = 4, devi
                                  epsilon=epsilon,
                                  dt=dt, device=device).to(device)  # .double()
         print("TransNet with sweeping chosen")
-        # layer = TransNetLayer(in_features=units, out_features=units).double()
-        # gcheck = gradcheck(layer, torch.randn(batch_size, 2 * units, requires_grad=True, dtype=torch.double),
-        #                   check_undefined_grad=False, atol=1e-7)
-        # if gcheck:
-        #    print("Gradient of implicit layer corresponds to gradient of finite difference approximation")
+
+    if model_type == 6:
+        model = TransNetExplicit(units=units, input_dim=input_dim, output_dim=output_dim, num_layers=num_layers,
+                                 epsilon=epsilon,
+                                 dt=dt, device=device).to(device)
+        print("Explicit TransNet chosen")
     # print(model)
     # 0) Sanitycheck
     if grad_check:
