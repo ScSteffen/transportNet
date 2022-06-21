@@ -4,13 +4,13 @@ from torch import nn
 from optparse import OptionParser
 
 from src.bake_swiss_rolls import create_dataset
-from src.utils import create_model, fit, test
+from src.utils import create_model, fit, test,create_csv_logger_cb
 
 import numpy as np
 import matplotlib.pyplot as plt
 
 
-def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_type, plotting=False):
+def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_type, plotting=False, gpu=True):
     """
     :param num_layers: numbre of layers
     :param units: neurons per layer
@@ -22,7 +22,11 @@ def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_
     """
 
     # Setup device
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    if gpu==1:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    else:
+        device = "cpu"
+
     print(f"Using {device} device")
     print("model type")
     print(model_type)
@@ -70,18 +74,21 @@ def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_
         print(f"Shape of X [batch, dim]: {X.shape}")
         print(f"Shape of y: {y.shape} {y.dtype}")
         break
+    
+    log_file, file_name = create_csv_logger_cb(folder_name="results/swiss_roll_model_" + str(model_type))
+
 
     # train the network
     for t in range(epochs):
         print(f"Epoch {t + 1}\n-------------------------------")
         fit(train_dataloader, model, loss_fn, optimizer, device)
-        test(test_dataloader, model, loss_fn, device)
+        test(test_dataloader, model, loss_fn, device,t+1,file_name)
         if plotting:
             print_current_evaluation(x_train_plot, whole_space_torch, n_grid, model, t + 1, model_nr=model_type)
     print("Done!")
 
     # 3) Call network
-    logits = model(X)
+    logits = model(X.to(device))
     pred_probab = nn.Softmax(dim=1)(logits)
     y_pred = pred_probab.argmax(1)
     print(f"Predicted class: {y_pred}")
@@ -128,6 +135,8 @@ if __name__ == '__main__':
     parser.add_option("-m", "--model_type", dest="model_type", default=0)
     parser.add_option("-d", "--time_step", dest="dt", default=1)
     parser.add_option("-p", "--plotting", dest="plotting", default=1)
+    parser.add_option("-g", "--gpu", dest="gpu", default=1)
+
 
     (options, args) = parser.parse_args()
     options.units = int(options.units)
@@ -139,9 +148,11 @@ if __name__ == '__main__':
     options.num_layers = int(options.num_layers)
     options.model_type = int(options.model_type)
     options.dt = float(options.dt)
-    options.plotting = bool(options.dt)
+    options.plotting = bool(options.plotting)
+    options.gpu = int(options.gpu)
+
 
     if options.train == 1:
         train(num_layers=options.num_layers, units=options.units, epsilon=options.epsilon,
               batch_size=options.batch_size, load_model=options.load_model, epochs=options.epochs,
-              model_type=options.model_type, dt=options.dt, plotting=options.plotting)
+              model_type=options.model_type, dt=options.dt, plotting=options.plotting, gpu =  options.gpu)
