@@ -3,6 +3,7 @@ from src.resnet import ResNet
 from src.newton_implicit import NewtonImplicitNet
 from src.transNetImplicit import TransNet, TransNetLayer
 from src.transNetExplicit import TransNetExplicit
+from src.transNetExplicit2 import TransNetExplicit2
 from src.transNetImplicit_split2 import TransNetSplit2, TransNetLayerSplit2
 from src.transNetImplicitSweeping import TransNetSweeping
 from torch.autograd import gradcheck
@@ -81,6 +82,12 @@ def create_model(model_type: int = 0, units: int = 10, num_layers: int = 4, devi
         model = TransNetExplicit(units=units, input_dim=input_dim, output_dim=output_dim, num_layers=num_layers,
                                  epsilon=epsilon,
                                  dt=dt, device=device).to(device)
+        print("Explicit TransNet chosen")
+
+    if model_type == 7:
+        model = TransNetExplicit2(units=units, input_dim=input_dim, output_dim=output_dim, num_layers=num_layers,
+                                  epsilon=epsilon,
+                                  dt=dt, device=device).to(device)
         print("Explicit TransNet chosen")
     # print(model)
     # 0) Sanitycheck
