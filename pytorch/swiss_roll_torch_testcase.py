@@ -4,7 +4,7 @@ from torch import nn
 from optparse import OptionParser
 
 from src.bake_swiss_rolls import create_dataset
-from src.utils import create_model, fit, test,create_csv_logger_cb
+from src.utils import create_model, fit, test, create_csv_logger_cb
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -22,7 +22,7 @@ def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_
     """
 
     # Setup device
-    if gpu==1:
+    if gpu == 1:
         device = "cuda" if torch.cuda.is_available() else "cpu"
     else:
         device = "cpu"
@@ -74,15 +74,14 @@ def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_
         print(f"Shape of X [batch, dim]: {X.shape}")
         print(f"Shape of y: {y.shape} {y.dtype}")
         break
-    
-    log_file, file_name = create_csv_logger_cb(folder_name="results/swiss_roll_model_" + str(model_type))
 
+    log_file, file_name = create_csv_logger_cb(folder_name="results/swiss_roll_model_" + str(model_type))
 
     # train the network
     for t in range(epochs):
         print(f"Epoch {t + 1}\n-------------------------------")
-        fit(train_dataloader, model, loss_fn, optimizer, device)
-        test(test_dataloader, model, loss_fn, device,t+1,file_name)
+        timing = fit(train_dataloader, model, loss_fn, optimizer, device)
+        test(test_dataloader, model, loss_fn, device, t + 1, file_name, timing)
         if plotting:
             print_current_evaluation(x_train_plot, whole_space_torch, n_grid, model, t + 1, model_nr=model_type)
     print("Done!")
@@ -137,7 +136,6 @@ if __name__ == '__main__':
     parser.add_option("-p", "--plotting", dest="plotting", default=1)
     parser.add_option("-g", "--gpu", dest="gpu", default=1)
 
-
     (options, args) = parser.parse_args()
     options.units = int(options.units)
     options.epsilon = float(options.epsilon)
@@ -151,8 +149,7 @@ if __name__ == '__main__':
     options.plotting = bool(options.plotting)
     options.gpu = int(options.gpu)
 
-
     if options.train == 1:
         train(num_layers=options.num_layers, units=options.units, epsilon=options.epsilon,
               batch_size=options.batch_size, load_model=options.load_model, epochs=options.epochs,
-              model_type=options.model_type, dt=options.dt, plotting=options.plotting, gpu =  options.gpu)
+              model_type=options.model_type, dt=options.dt, plotting=options.plotting, gpu=options.gpu)

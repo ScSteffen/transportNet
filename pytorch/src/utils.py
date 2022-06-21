@@ -9,6 +9,8 @@ from torch.autograd import gradcheck
 import torch
 
 from os import path, makedirs
+from timeit import default_timer as timer
+
 
 def create_model(model_type: int = 0, units: int = 10, num_layers: int = 4, device="cpu", input_dim: int = 784,
                  output_dim: int = 10, dt: float = 0.1, epsilon: float = 0.01, grad_check: bool = False,
@@ -52,7 +54,7 @@ def create_model(model_type: int = 0, units: int = 10, num_layers: int = 4, devi
                          epsilon=epsilon, dt=dt,
                          device=device).to(device)  # .double()
         print("TransNet chosen")
-        layer = TransNetLayer(in_features=units, out_features=units).double()
+        # layer = TransNetLayer(in_features=units, out_features=units).double()
         # gcheck = gradcheck(layer, torch.randn(batch_size, 2 * units, requires_grad=True, dtype=torch.double),
         #                   check_undefined_grad=False, atol=1e-7)
         # if gcheck:
@@ -62,8 +64,8 @@ def create_model(model_type: int = 0, units: int = 10, num_layers: int = 4, devi
         model = TransNetSplit2(units=units, input_dim=input_dim, output_dim=output_dim, num_layers=num_layers,
                                epsilon=epsilon, dt=dt,
                                device=device).to(device)  # .double()
-        print("TransNet chosen")
-        layer = TransNetLayerSplit2(in_features=units, out_features=units).double()
+        print("TransNet chosen wih v2 splitting")
+        # layer = TransNetLayerSplit2(in_features=units, out_features=units).double()
         # gcheck = gradcheck(layer, torch.randn(batch_size, 2 * units, requires_grad=True, dtype=torch.double),
         #                   check_undefined_grad=False, atol=1e-7)
         # if gcheck:
@@ -97,6 +99,8 @@ def fit(dataloader, model, loss_fn, optimizer, device):
     for batch, (X, y) in enumerate(dataloader):
         X, y = X.to(device), y.to(device)
 
+        # Time measure start
+        start = timer()
         # Compute prediction error
         z = torch.flatten(X, start_dim=1)
         pred = model(z)
@@ -105,6 +109,8 @@ def fit(dataloader, model, loss_fn, optimizer, device):
         # Backpropagation
         loss.backward()
 
+        end = timer()
+        timing = end - start
         # gradient update
         optimizer.step()
         optimizer.zero_grad()
@@ -113,8 +119,10 @@ def fit(dataloader, model, loss_fn, optimizer, device):
             loss, current = loss.item(), batch * len(X)
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
 
+    return timing
 
-def test(dataloader, model, loss_fn, device,iter,log_file):
+
+def test(dataloader, model, loss_fn, device, iter, log_file, timing):
     size = len(dataloader.dataset)
     num_batches = len(dataloader)
     model.eval()
@@ -129,13 +137,13 @@ def test(dataloader, model, loss_fn, device,iter,log_file):
     correct /= size
     print(
         f"Test Error: \n Accuracy: {(100 * correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
-    
-    if iter ==1:
-        data = ["iter", "Accuracy", "Loss"]
-        write_history_log(log_file,data)
 
-    data = [iter,correct,test_loss]
-    write_history_log(log_file,data)
+    if iter == 1:
+        data = ["iter", "Accuracy", "Loss", "timing"]
+        write_history_log(log_file, data)
+
+    data = [iter, correct, test_loss, timing]
+    write_history_log(log_file, data)
 
 
 def create_csv_logger_cb(folder_name: str):
@@ -161,14 +169,13 @@ def create_csv_logger_cb(folder_name: str):
     return f, logFileName
 
 
-def write_history_log(file:str, data:list):
-
+def write_history_log(file: str, data: list):
     log_string = ""
     for pt in data:
-        log_string+= str(pt) + ";"
+        log_string += str(pt) + ";"
     log_string += "\n"
 
     with open(file, "a") as log:
-            log.write(log_string)
+        log.write(log_string)
 
     return 0
