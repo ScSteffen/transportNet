@@ -130,6 +130,10 @@ def test(dataloader, model, loss_fn, device,iter,log_file):
     print(
         f"Test Error: \n Accuracy: {(100 * correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
     
+    if iter ==1:
+        data = ["iter", "Accuracy", "Loss"]
+        write_history_log(log_file,data)
+
     data = [iter,correct,test_loss]
     write_history_log(log_file,data)
 
@@ -162,6 +166,7 @@ def write_history_log(file:str, data:list):
     log_string = ""
     for pt in data:
         log_string+= str(pt) + ";"
+    log_string += "\n"
 
     with open(file, "a") as log:
             log.write(log_string)
