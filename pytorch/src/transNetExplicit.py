@@ -6,16 +6,17 @@ from src.layers import LinearLayer
 
 
 class TransNetExplicit(nn.Module):
-    def __init__(self, units, input_dim, output_dim, num_layers, epsilon, dt, device, steps=50):
+    def __init__(self, units, input_dim, output_dim, num_layers, epsilon, dt, device, steps=1):
         super(TransNetExplicit, self).__init__()
         self.num_layers = num_layers
         self.units = units
         self.steps = steps
+        self.dt = 1.0 / steps
         self.linearInput = LinearLayer(input_dim, units)
-        self.block1 = TransNetLayerExplict(units, units, epsilon=epsilon, dt=dt, device=device, steps=steps)
-        self.block2 = TransNetLayerExplict(units, units, epsilon=epsilon, dt=dt, device=device, steps=steps)
-        self.block3 = TransNetLayerExplict(units, units, epsilon=epsilon, dt=dt, device=device, steps=steps)
-        self.block4 = TransNetLayerExplict(units, units, epsilon=epsilon, dt=dt, device=device, steps=steps)
+        self.block1 = TransNetLayerExplict(units, units, epsilon=epsilon, dt=self.dt, device=device, steps=steps)
+        self.block2 = TransNetLayerExplict(units, units, epsilon=epsilon, dt=self.dt, device=device, steps=steps)
+        self.block3 = TransNetLayerExplict(units, units, epsilon=epsilon, dt=self.dt, device=device, steps=steps)
+        self.block4 = TransNetLayerExplict(units, units, epsilon=epsilon, dt=self.dt, device=device, steps=steps)
 
         self.linearOutput = LinearLayer(units, output_dim)
 
@@ -71,9 +72,9 @@ class TransNetLayerExplict(nn.Module):
         self.dt = dt * torch.ones(1).to(device)
         self.device = device
         self.steps = steps
-        self.step =0
+        self.step = 0
         self.tol = 1e-4
-        
+
         self.weight = nn.Parameter(torch.empty((out_features, in_features), dtype=torch.float))  # W^T
         if bias:
             self.bias = nn.Parameter(torch.empty(out_features, dtype=torch.float))
@@ -100,34 +101,36 @@ class TransNetLayerExplict(nn.Module):
 
         u_in = x[:, :self.out_features]
         v_in = x[:, self.out_features:]
-        
-        z = u_in
-        
-        self.step =0
+
+        u_temp = u_in
+        v_temp = v_in
+
+        self.step = 0
 
         while self.step < self.steps:
             # Sweeping Step
-            #u_star = u_in + self.dt * (torch.matmul(v_in, self.weight) + self.bias)
-            #v_star = v_in - self.dt * torch.matmul(u_in, torch.transpose(self.weight, 0, 1))
+            # u_star = u_in + self.dt * (torch.matmul(v_in, self.weight) + self.bias)
+            # v_star = v_in - self.dt * torch.matmul(u_in, torch.transpose(self.weight, 0, 1))
 
             # Relaxation Step
-            #u_out = u_star
-            #v_out = 1.0 / (1 + self.dt / self.epsilon) * (
+            # u_out = u_star
+            # v_out = 1.0 / (1 + self.dt / self.epsilon) * (
             #       v_star + self.dt / self.epsilon * self.activation(v_star))
-            
-            
-            u_out = u_in + self.activation(torch.matmul(z,self.weight)+self.bias)*self.dt
 
-            self.step+=1
-            err =  torch.norm(u_out-z) #+ torch.norm(v_out-v_in)
-            if err <self.tol:
+            u_out = u_in + self.dt * (-1.0 * torch.matmul(v_temp, self.weight) + self.bias)
+            v_out = v_in + self.dt * (
+                    torch.matmul(u_temp, torch.transpose(self.weight, 0, 1)) - 1.0 / self.epsilon * (
+                    v_temp - self.activation(u_temp)))
+            self.step += 1
+            err = torch.norm(u_out - u_temp) + torch.norm(v_out - v_temp)
+            # print(err)
+            if err < self.tol:
                 break
-            
-            z = u_out
-            #v_in = v_out
-        v_out = v_in
-        #print(err)
-        #print("------")
+            u_temp = u_out
+            v_temp = v_out
+
+        # print(err)
+        # print("------")
         # Assemble layer solution vector
         y = torch.cat((u_out, v_out), 1)
 
