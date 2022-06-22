@@ -43,7 +43,7 @@ class TransNetSweeping(nn.Module):
 
             step = 0
             total_err = 10
-            while step < self.steps or total_err < self.tol:
+            while step < self.steps and total_err > self.tol:
                 # 1) relax
                 self.block1.relax()
                 self.block2.relax()
@@ -57,6 +57,10 @@ class TransNetSweeping(nn.Module):
                 z, err4 = self.block4.sweep(z)
                 total_err = 1. / 4. * (err1 + err2 + err3 + err4)
                 step += 1
+                
+                #print(total_err)
+                #print(step)
+                #print("-----")
 
         # Forward iteration for gradient tape
         z = self.block1.implicit_forward(z_in)
@@ -217,7 +221,7 @@ class TransNetLayerSweeping(nn.Module):
                 DONT USE WITH GRADIENT TAPE ACTIVE
         """
         # 1)  assemble right hand side
-        zeros = torch.zeros(size=(self.z_l.size()[0], self.out_features))
+        zeros = torch.zeros(size=(self.z_l.size()[0], self.out_features),device=self.device)
         self.rhs = torch.cat(
             (zeros + self.dt * self.bias, self.dt / self.epsilon * self.activation(self.z_l[:, :self.out_features])), 1)
 
