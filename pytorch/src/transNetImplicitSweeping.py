@@ -57,10 +57,10 @@ class TransNetSweeping(nn.Module):
                 z, err4 = self.block4.sweep(z)
                 total_err = 1. / 4. * (err1 + err2 + err3 + err4)
                 step += 1
-                
-                #print(total_err)
-                #print(step)
-                #print("-----")
+
+                # print(total_err)
+                # print(step)
+                # print("-----")
 
         # Forward iteration for gradient tape
         z = self.block1.implicit_forward(z_in)
@@ -136,61 +136,6 @@ class TransNetLayerSweeping(nn.Module):
             bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
             nn.init.uniform_(self.bias, -bound, bound)
 
-    def forward(self, x, sweep):
-        """
-        :param x: Layer input
-        :return: Output y of implicit Layer Ay = x + f(x) + b
-        """
-
-        # y = x
-        with torch.no_grad():
-            # 1)  assemble right hand side (relaxation step)
-
-            u_in = x[:, :self.out_features]
-            v_in = x[:, self.out_features:]
-            rhs = torch.cat((u_in + self.dt * self.bias, v_in + self.dt / self.epsilon * self.activation(u_in)),
-                            1) - sweep
-
-            rhs = rhs[:, :, None]  # assemble broadcasted rhs of system
-
-            # 2) Solve system (detached from gradient tape)
-            A = torch.eye(2 * self.out_features).to(self.device)
-            A[:self.out_features, self.out_features:] = self.dt * self.weight
-            A[self.out_features:, :self.out_features] = - self.dt * torch.transpose(self.weight, 0, 1)
-            A[self.out_features:, self.out_features:] = A[self.out_features:,
-                                                        self.out_features:] + self.dt / self.epsilon * torch.eye(
-                self.out_features, device=self.device)
-
-            A = A.repeat(x.shape[0], 1, 1).to(self.device)  # assemble broadcastet matrix of system on device
-
-            y = torch.solve(rhs, A)[0][:, :, 0]
-
-            w = self.weight.clone().detach().requires_grad_(
-                False)  # copy weights for forward pass, such that only the parameters of the first relaxation equation is used for gradient updates
-
-        # 3)  reengage autograd and add the gradient hook
-        u = y[:, :self.out_features]
-        v = y[:, self.out_features:]
-        # a) u part
-        u_out = self.dt * torch.matmul(v, self.weight.T) - u_in - self.dt * self.bias
-        # b) v part
-        v_out = - self.dt * torch.matmul(u,
-                                         w) + self.dt / self.epsilon * v - v_in - self.dt / self.epsilon * self.activation(
-            u_in)
-
-        # Assemble layer solution vector
-        y = torch.cat((u_out, v_out), 1)
-
-        # 4) Assemble sweep for next layer
-        sweep = sweep + torch.matmul(y, torch.transpose(A[0], 0, 1))
-
-        # 5) Use implicit function theorem (or adjoint equation of the KKT system to compute the real gradient)
-        #   Let g = Ay - (x + f(x) + b) (layer in fixed point notation). Then grad = dg/dx.
-        #   We need gradient dy/dx, using dg/dy*dy/dx =dg/dy with A=dg/dy
-        if y.requires_grad:
-            y.register_hook(lambda grad: torch.solve(grad[:, :, None], A.transpose(1, 2))[0][:, :, 0])
-        return y, sweep
-
     def initialize_model(self, input_x):
         """
         :param input_x: input data
@@ -221,7 +166,7 @@ class TransNetLayerSweeping(nn.Module):
                 DONT USE WITH GRADIENT TAPE ACTIVE
         """
         # 1)  assemble right hand side
-        zeros = torch.zeros(size=(self.z_l.size()[0], self.out_features),device=self.device)
+        zeros = torch.zeros(size=(self.z_l.size()[0], self.out_features), device=self.device)
         self.rhs = torch.cat(
             (zeros + self.dt * self.bias, self.dt / self.epsilon * self.activation(self.z_l[:, :self.out_features])), 1)
 
@@ -233,12 +178,12 @@ class TransNetLayerSweeping(nn.Module):
             :return: Output y of implicit Layer Ay = x + f(x) + b
                     DONT USE WITH GRADIENT TAPE ACTIVE
         """
-        A = self.A.repeat(self.z_l.shape[0], 1, 1).to(self.device)
+        self.big_A = self.A.repeat(self.z_l.shape[0], 1, 1).to(self.device)
         rhs = self.rhs + z_lp1_i
 
         rhs = rhs[:, :, None]
 
-        y = torch.solve(rhs, A)[0][:, :, 0]
+        y = torch.solve(rhs, self.big_A)[0][:, :, 0]
         error = torch.mean(torch.linalg.norm(self.z_l - y, dim=1))
         self.z_l = y
         return self.z_l, error
@@ -262,6 +207,5 @@ class TransNetLayerSweeping(nn.Module):
         #   Let g = Ay - (x + f(x) + b) (layer in fixed point notation). Then grad = dg/dx.
         #   We need gradient dy/dx, using dg/dy*dy/dx =dg/dy with A=dg/dy
         if z_out.requires_grad:
-            z_out.register_hook(lambda grad: torch.solve(grad[:, :, None], self.A.repeat(self.z_l.shape[0], 1, 1).to(
-                self.device).transpose(1, 2))[0][:, :, 0])
+            z_out.register_hook(lambda grad: torch.solve(grad[:, :, None], self.big_A.transpose(1, 2))[0][:, :, 0])
         return z_out
