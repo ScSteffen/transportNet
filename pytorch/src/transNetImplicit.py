@@ -119,10 +119,10 @@ class TransNetLayer(nn.Module):
         u = y[:, :self.out_features]
         v = y[:, self.out_features:]
         # a) u part
-        u_out = self.dt * torch.matmul(v, self.weight.T) - u_in - self.dt * self.bias
+        u_out = -self.dt * torch.matmul(v, self.weight.T) + u_in + self.dt * self.bias
         # b) v part
-        v_out = - self.dt * torch.matmul(u, w) + \
-                self.dt / self.epsilon * v - v_in - self.dt / self.epsilon * self.activation(u_in)
+        v_out = self.dt * torch.matmul(u, w) - \
+                self.dt / self.epsilon * v + v_in + self.dt / self.epsilon * self.activation(u_in)
 
         # Assemble layer solution vector
         y = torch.cat((u_out, v_out), 1)

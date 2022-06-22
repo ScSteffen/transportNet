@@ -6,14 +6,14 @@ from src.layers import LinearLayer
 
 
 class TransNetSweeping(nn.Module):
-    def __init__(self, units, input_dim, output_dim, num_layers, epsilon, dt, device):
+    def __init__(self, units, input_dim, output_dim, num_layers, epsilon, dt, device, steps=40):
         super(TransNetSweeping, self).__init__()
         self.num_layers = num_layers
         self.units = units
         self.epsilon = epsilon
         self.dt = dt
         self.tol = 1e-4
-
+        self.steps = steps
         self.device = device
         self.linearInput = LinearLayer(input_dim, units)
         self.block1 = TransNetLayerSweeping(units, units, epsilon=epsilon, dt=dt, device=device)
@@ -56,6 +56,7 @@ class TransNetSweeping(nn.Module):
                 z, err3 = self.block3.sweep(z)
                 z, err4 = self.block4.sweep(z)
                 total_err = 1. / 4. * (err1 + err2 + err3 + err4)
+                step += 1
 
         # Forward iteration for gradient tape
         z = self.block1.implicit_forward(z_in)
@@ -119,6 +120,7 @@ class TransNetLayerSweeping(nn.Module):
         self.reset_parameters()
         self.activation = nn.Tanh()
         self.A = torch.eye(2 * self.out_features).to(self.device)
+        self.z_l = 0
 
     def reset_parameters(self) -> None:
         # Setting a=sqrt(5) in kaiming_uniform is the same as initializing with
@@ -215,8 +217,9 @@ class TransNetLayerSweeping(nn.Module):
                 DONT USE WITH GRADIENT TAPE ACTIVE
         """
         # 1)  assemble right hand side
+        zeros = torch.zeros(size=(self.z_l.size()[0], self.out_features))
         self.rhs = torch.cat(
-            (self.dt * self.bias, self.dt / self.epsilon * self.activation(self.z_l[:, :self.out_features])), 1)
+            (zeros + self.dt * self.bias, self.dt / self.epsilon * self.activation(self.z_l[:, :self.out_features])), 1)
 
         return 0
 
@@ -238,4 +241,23 @@ class TransNetLayerSweeping(nn.Module):
 
     def implicit_forward(self, z_in):
 
+        u_in = z_in[:, :self.out_features]
+        v_in = z_in[:, self.out_features:]
+
+        # a) u part
+        u_out = -self.dt * torch.matmul(self.z_l[:, self.out_features:], self.weight.T) + u_in + self.dt * self.bias
+        # b) v part
+        v_out = self.dt * torch.matmul(self.z_l[:, :self.out_features], self.weight) + v_in - \
+                self.dt / self.epsilon * (
+                        self.z_l[:, self.out_features:] - self.activation(self.z_l[:, :self.out_features]))
+
+        # Assemble layer solution vector
+        z_out = torch.cat((u_out, v_out), 1)
+
+        # 4) Use implicit function theorem (or adjoint equation of the KKT system to compute the real gradient)
+        #   Let g = Ay - (x + f(x) + b) (layer in fixed point notation). Then grad = dg/dx.
+        #   We need gradient dy/dx, using dg/dy*dy/dx =dg/dy with A=dg/dy
+        if z_out.requires_grad:
+            z_out.register_hook(lambda grad: torch.solve(grad[:, :, None], self.A.repeat(self.z_l.shape[0], 1, 1).to(
+                self.device).transpose(1, 2))[0][:, :, 0])
         return z_out
