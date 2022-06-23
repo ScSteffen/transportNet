@@ -22,8 +22,11 @@ class TransNetSweeping(nn.Module):
         self.block4 = TransNetLayerSweeping(units, units, epsilon=epsilon, dt=dt, device=device)
 
         self.linearOutput = LinearLayer(units, output_dim)
+        self.batch_size = 0
 
     def forward(self, x):
+        self.batch_size = x.size()[0]
+
         x = self.linearInput(x)
         z_in = torch.cat((x, self.block1.activation(x)), 1)
 
@@ -180,7 +183,7 @@ class TransNetLayerSweeping(nn.Module):
                     DONT USE WITH GRADIENT TAPE ACTIVE
         """
         A = self.A.repeat(self.z_l.shape[0], 1, 1).to(self.device)
-        rhs = self.rhs + z_lp1_i
+        rhs = self.rhs[:self.batch_size, :] + z_lp1_i
 
         rhs = rhs[:, :, None]
 
