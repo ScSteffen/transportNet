@@ -184,7 +184,8 @@ class TransNetLayerSweepingExplRhs(nn.Module):
         """
         # 1)  assemble right hand side
         zeros = torch.zeros(size=(self.z_l.size()[0], self.out_features), device=self.device)
-        self.rhs = torch.cat((zeros + self.dt * self.bias, self.dt / self.epsilon * self.activation(z_lp1_i)), 1)
+        self.rhs = torch.cat(
+            (zeros + self.dt * self.bias, self.dt / self.epsilon * self.activation(z_lp1_i[:, :self.out_features])), 1)
 
         return 0
 
