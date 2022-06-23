@@ -6,7 +6,7 @@ from src.layers import LinearLayer
 
 
 class TransNetSweeping(nn.Module):
-    def __init__(self, units, input_dim, output_dim, num_layers, epsilon, dt, device, steps=40):
+    def __init__(self, units, input_dim, output_dim, num_layers, epsilon, dt, device, steps=100):
         super(TransNetSweeping, self).__init__()
         self.num_layers = num_layers
         self.units = units
@@ -49,9 +49,9 @@ class TransNetSweeping(nn.Module):
                 total_err = self.sweep(z_in)
                 step += 1
 
-            print(total_err)
-            print(step)
-            print("-----")
+            #print(total_err)
+            #print(step)
+            #print("-----")
 
         # Forward iteration for gradient tape
         z = self.implicit_forward(z_in)
@@ -67,44 +67,44 @@ class TransNetSweeping(nn.Module):
 
         self.block1.initialize_model(x)
         self.block2.initialize_model(x)
-        # self.block3.initialize_model(x)
-        # self.block4.initialize_model(x)
+        self.block3.initialize_model(x)
+        self.block4.initialize_model(x)
         return 0
 
     def setup_system_mats(self):
         self.block1.setup_system_mat()
         self.block2.setup_system_mat()
-        # self.block3.setup_system_mat()
-        # self.block4.setup_system_mat()
+        self.block3.setup_system_mat()
+        self.block4.setup_system_mat()
         return 0
 
     def relax(self):
         self.block1.relax()
         self.block2.relax()
-        # self.block3.relax()
-        # self.block4.relax()
+        self.block3.relax()
+        self.block4.relax()
         return 0
 
     def sweep(self, z_in):
         z, err1 = self.block1.sweep(z_in)
         z, err2 = self.block2.sweep(z)
-        # z, err3 = self.block3.sweep(z)
-        # z, err4 = self.block4.sweep(z)
-        total_err = 1. / 2. * (err1 + err2)  # + err3 + err4)
+        z, err3 = self.block3.sweep(z)
+        z, err4 = self.block4.sweep(z)
+        total_err = 1. / 2. * (err1 + err2 + err3 + err4)
         return total_err
 
     def implicit_forward(self, z_in):
         z = self.block1.implicit_forward(z_in)
         z = self.block2.implicit_forward(z)
-        # z = self.block3.implicit_forward(z)
-        # z = self.block4.implicit_forward(z)
+        z = self.block3.implicit_forward(z)
+        z = self.block4.implicit_forward(z)
         return z
 
     def set_batch_size(self):
         self.block1.batch_size = self.batch_size
         self.block2.batch_size = self.batch_size
-        # self.block3.batch_size = self.batch_size
-        # self.block4.batch_size = self.batch_size
+        self.block3.batch_size = self.batch_size
+        self.block4.batch_size = self.batch_size
 
 
 class TransNetLayerSweeping(nn.Module):
@@ -134,9 +134,12 @@ class TransNetLayerSweeping(nn.Module):
             self.register_parameter('bias', None)
         self.reset_parameters()
         self.activation = nn.Tanh()
+        
         self.A = torch.eye(2 * self.out_features).to(self.device)
         self.z_l = torch.eye(1)
         self.batch_size = 0
+        
+        self.w_t = torch.eye(self.out_features).to(self.device)
 
     @staticmethod
     def grad_activation(z):
@@ -174,6 +177,9 @@ class TransNetLayerSweeping(nn.Module):
         self.A[self.out_features:, :self.out_features] = - self.dt * torch.transpose(self.weight, 0, 1)
         self.A[self.out_features:, self.out_features:] = (1 + self.dt / self.epsilon) * torch.eye(self.out_features,
                                                                                                   device=self.device)
+        
+        
+        self.w = self.weight.T
         return 0
 
     def relax(self):
@@ -209,13 +215,15 @@ class TransNetLayerSweeping(nn.Module):
 
         u_in = z_in[:, :self.out_features]
         v_in = z_in[:, self.out_features:]
+        
+        
 
         # a) u part
         u_out = - self.dt * torch.matmul(self.z_l[:, self.out_features:],
                                          self.weight.T) + u_in + self.dt * self.bias
         # b) v part
         v_out = self.dt * torch.matmul(self.z_l[:, :self.out_features],
-                                       self.weight) + v_in - self.dt / self.epsilon * (
+                                       self.w.T) + v_in - self.dt / self.epsilon * (
                         self.z_l[:, self.out_features:] - self.activation(self.z_l[:, :self.out_features]))
 
         # Assemble layer solution vector

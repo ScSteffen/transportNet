@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_type, plotting=False, gpu=True):
+def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_type, plotting=False, gpu=True,steps =20):
     """
     :param num_layers: numbre of layers
     :param units: neurons per layer
@@ -33,7 +33,7 @@ def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_
 
     # 1) Create network
     model = create_model(model_type=model_type, units=units, num_layers=num_layers, device=device, input_dim=2,
-                         output_dim=2, dt=dt, epsilon=epsilon, grad_check=False, batch_size=batch_size)
+                         output_dim=2, dt=dt, epsilon=epsilon, grad_check=False, batch_size=batch_size, steps = steps)
 
     sweeping_model = False
     if model_type == 5:
@@ -140,6 +140,7 @@ if __name__ == '__main__':
     parser.add_option("-d", "--time_step", dest="dt", default=1)
     parser.add_option("-p", "--plotting", dest="plotting", default=1)
     parser.add_option("-g", "--gpu", dest="gpu", default=1)
+    parser.add_option("-s", "--steps", dest="iterator_steps", default=40)
 
     (options, args) = parser.parse_args()
     options.units = int(options.units)
@@ -153,8 +154,10 @@ if __name__ == '__main__':
     options.dt = float(options.dt)
     options.plotting = bool(options.plotting)
     options.gpu = int(options.gpu)
+    options.iterator_steps = int(options.iterator_steps)
 
     if options.train == 1:
         train(num_layers=options.num_layers, units=options.units, epsilon=options.epsilon,
               batch_size=options.batch_size, load_model=options.load_model, epochs=options.epochs,
-              model_type=options.model_type, dt=options.dt, plotting=options.plotting, gpu=options.gpu)
+              model_type=options.model_type, dt=options.dt, plotting=options.plotting, gpu=options.gpu,
+              steps= options.iterator_steps)

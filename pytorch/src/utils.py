@@ -15,7 +15,7 @@ from timeit import default_timer as timer
 
 def create_model(model_type: int = 0, units: int = 10, num_layers: int = 4, device="cpu", input_dim: int = 784,
                  output_dim: int = 10, dt: float = 0.1, epsilon: float = 0.01, grad_check: bool = False,
-                 batch_size: int = 32):
+                 batch_size: int = 32, steps=40):
     """
     :param model_type: Type of the created model
     :param units: width of each (implicit) resnet layer
@@ -75,7 +75,7 @@ def create_model(model_type: int = 0, units: int = 10, num_layers: int = 4, devi
     if model_type == 5:
         model = TransNetSweeping(units=units, input_dim=input_dim, output_dim=output_dim, num_layers=num_layers,
                                  epsilon=epsilon,
-                                 dt=dt, device=device).to(device)  # .double()
+                                 dt=dt, device=device,steps=steps).to(device)  # .double()
         print("TransNet with sweeping chosen")
 
     if model_type == 6:
