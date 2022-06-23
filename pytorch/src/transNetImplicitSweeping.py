@@ -63,7 +63,7 @@ class TransNetSweeping(nn.Module):
         return logits
 
     def initialize_model(self, x):
-        x = self.linearInput(x)
+        # x = self.linearInput(x)
 
         self.block1.initialize_model(x)
         self.block2.initialize_model(x)
@@ -135,7 +135,7 @@ class TransNetLayerSweeping(nn.Module):
         self.reset_parameters()
         self.activation = nn.Tanh()
         self.A = torch.eye(2 * self.out_features).to(self.device)
-        self.z_l = 0
+        self.z_l = torch.eye(1)
         self.batch_size = 0
 
     @staticmethod
@@ -157,7 +157,8 @@ class TransNetLayerSweeping(nn.Module):
         :param input_x: input data
         :return:
         """
-        if self.z_l.shape() != input_x.shape():
+
+        if self.z_l.size()[0] != input_x.size()[0]:
             self.z_l = torch.cat((input_x, self.activation(input_x)), 1)
         return self.z_l
 
