@@ -6,6 +6,7 @@ from src.transNetExplicit import TransNetExplicit
 from src.transNetExplicit2 import TransNetExplicit2
 from src.transNetImplicit_split2 import TransNetSplit2, TransNetLayerSplit2
 from src.transNetImplicitSweeping import TransNetSweeping
+from src.transNetImplicitSweeping_explicitrhs import TransNetSweepingExplRhs
 from torch.autograd import gradcheck
 import torch
 
@@ -73,9 +74,8 @@ def create_model(model_type: int = 0, units: int = 10, num_layers: int = 4, devi
         #    print("Gradient of implicit layer corresponds to gradient of finite difference approximation")
 
     if model_type == 5:
-        model = TransNetSweeping(units=units, input_dim=input_dim, output_dim=output_dim, num_layers=num_layers,
-                                 epsilon=epsilon,
-                                 dt=dt, device=device,steps=steps).to(device)  # .double()
+        model = TransNetSweepingExplRhs(units=units, input_dim=input_dim, output_dim=output_dim, num_layers=num_layers,
+                                        epsilon=epsilon,                                        dt=dt, device=device,steps=steps).to(device)  # .double()
         print("TransNet with sweeping chosen")
 
     if model_type == 6:

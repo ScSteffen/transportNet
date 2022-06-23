@@ -5,9 +5,9 @@ import math
 from src.layers import LinearLayer
 
 
-class TransNetSweeping(nn.Module):
-    def __init__(self, units, input_dim, output_dim, num_layers, epsilon, dt, device, steps=100):
-        super(TransNetSweeping, self).__init__()
+class TransNetSweepingExplRhs(nn.Module):
+    def __init__(self, units, input_dim, output_dim, num_layers, epsilon, dt, device, steps=40):
+        super(TransNetSweepingExplRhs, self).__init__()
         self.num_layers = num_layers
         self.units = units
         self.epsilon = epsilon
@@ -16,10 +16,10 @@ class TransNetSweeping(nn.Module):
         self.steps = steps
         self.device = device
         self.linearInput = LinearLayer(input_dim, units)
-        self.block1 = TransNetLayerSweeping(units, units, epsilon=epsilon, dt=dt, device=device)
-        self.block2 = TransNetLayerSweeping(units, units, epsilon=epsilon, dt=dt, device=device)
-        self.block3 = TransNetLayerSweeping(units, units, epsilon=epsilon, dt=dt, device=device)
-        self.block4 = TransNetLayerSweeping(units, units, epsilon=epsilon, dt=dt, device=device)
+        self.block1 = TransNetLayerSweepingExplRhs(units, units, epsilon=epsilon, dt=dt, device=device)
+        self.block2 = TransNetLayerSweepingExplRhs(units, units, epsilon=epsilon, dt=dt, device=device)
+        self.block3 = TransNetLayerSweepingExplRhs(units, units, epsilon=epsilon, dt=dt, device=device)
+        self.block4 = TransNetLayerSweepingExplRhs(units, units, epsilon=epsilon, dt=dt, device=device)
 
         self.linearOutput = LinearLayer(units, output_dim)
         self.batch_size = 0
@@ -43,7 +43,7 @@ class TransNetSweeping(nn.Module):
             total_err = 10
             while step < self.steps and total_err > self.tol:
                 # 1) relax
-                self.relax()
+                self.relax(z_in)
 
                 # 2) sweep
                 total_err = self.sweep(z_in)
@@ -67,47 +67,47 @@ class TransNetSweeping(nn.Module):
 
         self.block1.initialize_model(x)
         self.block2.initialize_model(x)
-        self.block3.initialize_model(x)
-        self.block4.initialize_model(x)
+        # self.block3.initialize_model(x)
+        # self.block4.initialize_model(x)
         return 0
 
     def setup_system_mats(self):
         self.block1.setup_system_mat()
         self.block2.setup_system_mat()
-        self.block3.setup_system_mat()
-        self.block4.setup_system_mat()
+        # self.block3.setup_system_mat()
+        # self.block4.setup_system_mat()
         return 0
 
-    def relax(self):
-        self.block1.relax()
-        self.block2.relax()
-        self.block3.relax()
-        self.block4.relax()
+    def relax(self, z_in):
+        self.block1.relax(z_in)
+        self.block2.relax(z_in)
+        # self.block3.relax()
+        # self.block4.relax()
         return 0
 
     def sweep(self, z_in):
         z, err1 = self.block1.sweep(z_in)
         z, err2 = self.block2.sweep(z)
-        z, err3 = self.block3.sweep(z)
-        z, err4 = self.block4.sweep(z)
-        total_err = 1. / 2. * (err1 + err2 + err3 + err4)
+        # z, err3 = self.block3.sweep(z)
+        # z, err4 = self.block4.sweep(z)
+        total_err = 1. / 2. * (err1 + err2)  # + err3 + err4)
         return total_err
 
     def implicit_forward(self, z_in):
         z = self.block1.implicit_forward(z_in)
         z = self.block2.implicit_forward(z)
-        z = self.block3.implicit_forward(z)
-        z = self.block4.implicit_forward(z)
+        # z = self.block3.implicit_forward(z)
+        # z = self.block4.implicit_forward(z)
         return z
 
     def set_batch_size(self):
         self.block1.batch_size = self.batch_size
         self.block2.batch_size = self.batch_size
-        self.block3.batch_size = self.batch_size
-        self.block4.batch_size = self.batch_size
+        # self.block3.batch_size = self.batch_size
+        # self.block4.batch_size = self.batch_size
 
 
-class TransNetLayerSweeping(nn.Module):
+class TransNetLayerSweepingExplRhs(nn.Module):
     __constants__ = ['in_features', 'out_features']
     in_features: int
     out_features: int
@@ -134,12 +134,9 @@ class TransNetLayerSweeping(nn.Module):
             self.register_parameter('bias', None)
         self.reset_parameters()
         self.activation = nn.Tanh()
-        
         self.A = torch.eye(2 * self.out_features).to(self.device)
         self.z_l = torch.eye(1)
         self.batch_size = 0
-        
-        self.w_t = torch.eye(self.out_features).to(self.device)
 
     @staticmethod
     def grad_activation(z):
@@ -177,12 +174,9 @@ class TransNetLayerSweeping(nn.Module):
         self.A[self.out_features:, :self.out_features] = - self.dt * torch.transpose(self.weight, 0, 1)
         self.A[self.out_features:, self.out_features:] = (1 + self.dt / self.epsilon) * torch.eye(self.out_features,
                                                                                                   device=self.device)
-        
-        
-        self.w = self.weight.T
         return 0
 
-    def relax(self):
+    def relax(self, z_lp1_i):
         """
         :param z_in: [u,v]
         :return: constructs the rhs of the relaxation system.
@@ -191,7 +185,7 @@ class TransNetLayerSweeping(nn.Module):
         # 1)  assemble right hand side
         zeros = torch.zeros(size=(self.z_l.size()[0], self.out_features), device=self.device)
         self.rhs = torch.cat(
-            (zeros + self.dt * self.bias, self.dt / self.epsilon * self.activation(self.z_l[:, :self.out_features])), 1)
+            (zeros + self.dt * self.bias, self.dt / self.epsilon * self.activation(z_lp1_i[:, :self.out_features])), 1)
 
         return 0
 
@@ -215,16 +209,14 @@ class TransNetLayerSweeping(nn.Module):
 
         u_in = z_in[:, :self.out_features]
         v_in = z_in[:, self.out_features:]
-        
-        
 
         # a) u part
         u_out = - self.dt * torch.matmul(self.z_l[:, self.out_features:],
                                          self.weight.T) + u_in + self.dt * self.bias
         # b) v part
         v_out = self.dt * torch.matmul(self.z_l[:, :self.out_features],
-                                       self.w.T) + v_in - self.dt / self.epsilon * (
-                        self.z_l[:, self.out_features:] - self.activation(self.z_l[:, :self.out_features]))
+                                       self.weight) + v_in - self.dt / self.epsilon * (
+                        self.z_l[:, self.out_features:] - self.activation(u_in))
 
         # Assemble layer solution vector
         z_out = torch.cat((u_out, v_out), 1)
@@ -239,7 +231,7 @@ class TransNetLayerSweeping(nn.Module):
                       None] * self.dt / self.epsilon * torch.eye(self.out_features, device=self.device)[None, :,
                                                        :]  # db/du
             J = self.A.repeat(self.z_l.shape[0], 1, 1)
-            J[:, self.out_features:, :self.out_features] -= b_prime
+            # J[:, self.out_features:, :self.out_features] -= b_prime
 
         # register backward hook
         if z_out.requires_grad:
