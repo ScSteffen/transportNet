@@ -7,7 +7,7 @@ from src.layers import LinearLayer
 
 class TransNetSweepingExplRhs(nn.Module):
     def __init__(self, units, input_dim, output_dim, num_layers, epsilon, dt, device, steps=40):
-        super(TransNetSweeping, self).__init__()
+        super(TransNetSweepingExplRhs, self).__init__()
         self.num_layers = num_layers
         self.units = units
         self.epsilon = epsilon
