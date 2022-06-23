@@ -5,7 +5,7 @@ import math
 from src.layers import LinearLayer
 
 
-class TransNetSweeping(nn.Module):
+class TransNetSweepingExplRhs(nn.Module):
     def __init__(self, units, input_dim, output_dim, num_layers, epsilon, dt, device, steps=40):
         super(TransNetSweeping, self).__init__()
         self.num_layers = num_layers
@@ -16,10 +16,10 @@ class TransNetSweeping(nn.Module):
         self.steps = steps
         self.device = device
         self.linearInput = LinearLayer(input_dim, units)
-        self.block1 = TransNetLayerSweeping(units, units, epsilon=epsilon, dt=dt, device=device)
-        self.block2 = TransNetLayerSweeping(units, units, epsilon=epsilon, dt=dt, device=device)
-        self.block3 = TransNetLayerSweeping(units, units, epsilon=epsilon, dt=dt, device=device)
-        self.block4 = TransNetLayerSweeping(units, units, epsilon=epsilon, dt=dt, device=device)
+        self.block1 = TransNetLayerSweepingExplRhs(units, units, epsilon=epsilon, dt=dt, device=device)
+        self.block2 = TransNetLayerSweepingExplRhs(units, units, epsilon=epsilon, dt=dt, device=device)
+        self.block3 = TransNetLayerSweepingExplRhs(units, units, epsilon=epsilon, dt=dt, device=device)
+        self.block4 = TransNetLayerSweepingExplRhs(units, units, epsilon=epsilon, dt=dt, device=device)
 
         self.linearOutput = LinearLayer(units, output_dim)
         self.batch_size = 0
@@ -43,7 +43,7 @@ class TransNetSweeping(nn.Module):
             total_err = 10
             while step < self.steps and total_err > self.tol:
                 # 1) relax
-                self.relax()
+                self.relax(z_in)
 
                 # 2) sweep
                 total_err = self.sweep(z_in)
@@ -78,9 +78,9 @@ class TransNetSweeping(nn.Module):
         # self.block4.setup_system_mat()
         return 0
 
-    def relax(self):
-        self.block1.relax()
-        self.block2.relax()
+    def relax(self, z_in):
+        self.block1.relax(z_in)
+        self.block2.relax(z_in)
         # self.block3.relax()
         # self.block4.relax()
         return 0
@@ -107,7 +107,7 @@ class TransNetSweeping(nn.Module):
         # self.block4.batch_size = self.batch_size
 
 
-class TransNetLayerSweeping(nn.Module):
+class TransNetLayerSweepingExplRhs(nn.Module):
     __constants__ = ['in_features', 'out_features']
     in_features: int
     out_features: int
@@ -176,7 +176,7 @@ class TransNetLayerSweeping(nn.Module):
                                                                                                   device=self.device)
         return 0
 
-    def relax(self):
+    def relax(self, z_lp1_i):
         """
         :param z_in: [u,v]
         :return: constructs the rhs of the relaxation system.
@@ -184,8 +184,7 @@ class TransNetLayerSweeping(nn.Module):
         """
         # 1)  assemble right hand side
         zeros = torch.zeros(size=(self.z_l.size()[0], self.out_features), device=self.device)
-        self.rhs = torch.cat(
-            (zeros + self.dt * self.bias, self.dt / self.epsilon * self.activation(self.z_l[:, :self.out_features])), 1)
+        self.rhs = torch.cat((zeros + self.dt * self.bias, self.dt / self.epsilon * self.activation(z_lp1_i)), 1)
 
         return 0
 
@@ -216,7 +215,7 @@ class TransNetLayerSweeping(nn.Module):
         # b) v part
         v_out = self.dt * torch.matmul(self.z_l[:, :self.out_features],
                                        self.weight) + v_in - self.dt / self.epsilon * (
-                        self.z_l[:, self.out_features:] - self.activation(self.z_l[:, :self.out_features]))
+                        self.z_l[:, self.out_features:] - self.activation(u_in))
 
         # Assemble layer solution vector
         z_out = torch.cat((u_out, v_out), 1)
@@ -231,7 +230,7 @@ class TransNetLayerSweeping(nn.Module):
                       None] * self.dt / self.epsilon * torch.eye(self.out_features, device=self.device)[None, :,
                                                        :]  # db/du
             J = self.A.repeat(self.z_l.shape[0], 1, 1)
-            J[:, self.out_features:, :self.out_features] -= b_prime
+            # J[:, self.out_features:, :self.out_features] -= b_prime
 
         # register backward hook
         if z_out.requires_grad:
