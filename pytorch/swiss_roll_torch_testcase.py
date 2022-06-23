@@ -34,6 +34,11 @@ def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_
     # 1) Create network
     model = create_model(model_type=model_type, units=units, num_layers=num_layers, device=device, input_dim=2,
                          output_dim=2, dt=dt, epsilon=epsilon, grad_check=False, batch_size=batch_size)
+
+    sweeping_model = False
+    if model_type == 5:
+        sweeping_model = True
+
     # 2)  Create optimizer and loss
     optimizer = torch.optim.Adam(model.parameters())
     loss_fn = nn.CrossEntropyLoss()
@@ -80,8 +85,8 @@ def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_
     # train the network
     for t in range(epochs):
         print(f"Epoch {t + 1}\n-------------------------------")
-        timing = fit(train_dataloader, model, loss_fn, optimizer, device)
-        test(test_dataloader, model, loss_fn, device, t + 1, file_name, timing)
+        timing = fit(train_dataloader, model, loss_fn, optimizer, device, sweeping_model=sweeping_model)
+        test(test_dataloader, model, loss_fn, device, t + 1, file_name, timing, sweeping_model=sweeping_model)
         if plotting:
             print_current_evaluation(x_train_plot, whole_space_torch, n_grid, model, t + 1, model_nr=model_type)
     print("Done!")

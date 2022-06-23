@@ -101,9 +101,17 @@ def create_model(model_type: int = 0, units: int = 10, num_layers: int = 4, devi
     return model
 
 
-def fit(dataloader, model, loss_fn, optimizer, device):
+def fit(dataloader, model, loss_fn, optimizer, device, sweeping_model=False):
     size = len(dataloader.dataset)
     model.train()
+    if sweeping_model:
+        for batch, (X, y) in enumerate(dataloader):
+            X, y = X.to(device), y.to(device)
+            z = torch.flatten(X, start_dim=1)
+
+            model.initialize_model(z)
+            break
+
     for batch, (X, y) in enumerate(dataloader):
         X, y = X.to(device), y.to(device)
 
@@ -130,11 +138,20 @@ def fit(dataloader, model, loss_fn, optimizer, device):
     return timing
 
 
-def test(dataloader, model, loss_fn, device, iter, log_file, timing):
+def test(dataloader, model, loss_fn, device, iter, log_file, timing, sweeping_model=False):
     size = len(dataloader.dataset)
     num_batches = len(dataloader)
     model.eval()
     test_loss, correct = 0, 0
+
+    if sweeping_model:
+        for batch, (X, y) in enumerate(dataloader):
+            X, y = X.to(device), y.to(device)
+            z = torch.flatten(X, start_dim=1)
+
+            model.initialize_model(z)
+            break
+
     with torch.no_grad():
         for X, y in dataloader:
             X, y = X.to(device), y.to(device)

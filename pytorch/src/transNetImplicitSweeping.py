@@ -29,44 +29,25 @@ class TransNetSweeping(nn.Module):
 
         # Source_Iteration
         with torch.no_grad():
-            # 1) initialize model
-            self.block1.initialize_model(x)
-            self.block2.initialize_model(x)
-            self.block3.initialize_model(x)
-            self.block4.initialize_model(x)
-
             # 2) Setup system matrix
-            self.block1.setup_system_mat()
-            self.block2.setup_system_mat()
-            self.block3.setup_system_mat()
-            self.block4.setup_system_mat()
+            self.setup_system_mats()
 
             step = 0
             total_err = 10
             while step < self.steps and total_err > self.tol:
                 # 1) relax
-                self.block1.relax()
-                self.block2.relax()
-                self.block3.relax()
-                self.block4.relax()
+                self.relax()
 
                 # 2) sweep
-                z, err1 = self.block1.sweep(z_in)
-                z, err2 = self.block2.sweep(z)
-                z, err3 = self.block3.sweep(z)
-                z, err4 = self.block4.sweep(z)
-                total_err = 1. / 4. * (err1 + err2 + err3 + err4)
+                total_err = self.sweep(z_in)
                 step += 1
 
-                # print(total_err)
-                # print(step)
-                # print("-----")
+            print(total_err)
+            print(step)
+            print("-----")
 
         # Forward iteration for gradient tape
-        z = self.block1.implicit_forward(z_in)
-        z = self.block2.implicit_forward(z)
-        z = self.block3.implicit_forward(z)
-        z = self.block4.implicit_forward(z)
+        z = self.implicit_forward(z_in)
 
         #  linear output
         z = z[:, :self.units]
@@ -74,26 +55,43 @@ class TransNetSweeping(nn.Module):
         logits = nn.Softmax(dim=1)(z)
         return logits
 
-    def print_grads(self) -> None:
-        # t = self.linearInput.weight.grad
-        # print(self.linearInput.weight.grad)
+    def initialize_model(self, x):
+        x = self.linearInput(x)
 
-        # for i in range(784):
-        #    print(t[i, :])
-        # print(self.block1.weight.grad)
-        # print(self.block2.weight.grad)
-        print(self.block3.weight.grad)
-        # print(self.block4.weight.grad)
-        # print(self.linearOutput.weight.grad)
+        self.block1.initialize_model(x)
+        self.block2.initialize_model(x)
+        # self.block3.initialize_model(x)
+        # self.block4.initialize_model(x)
+        return 0
 
-    def print_weights(self) -> None:
-        # print(self.linearInput.weight)
+    def setup_system_mats(self):
+        self.block1.setup_system_mat()
+        self.block2.setup_system_mat()
+        # self.block3.setup_system_mat()
+        # self.block4.setup_system_mat()
+        return 0
 
-        # print(self.block1.weight)
-        # print(self.block2.weight)
-        print(self.block3.weight)
-        # print(self.block4.weight)
-        # print(self.linearOutput.weight)
+    def relax(self):
+        self.block1.relax()
+        self.block2.relax()
+        # self.block3.relax()
+        # self.block4.relax()
+        return 0
+
+    def sweep(self, z_in):
+        z, err1 = self.block1.sweep(z_in)
+        z, err2 = self.block2.sweep(z)
+        # z, err3 = self.block3.sweep(z)
+        # z, err4 = self.block4.sweep(z)
+        total_err = 1. / 2. * (err1 + err2)  # + err3 + err4)
+        return total_err
+
+    def implicit_forward(self, z_in):
+        z = self.block1.implicit_forward(z_in)
+        z = self.block2.implicit_forward(z)
+        # z = self.block3.implicit_forward(z)
+        # z = self.block4.implicit_forward(z)
+        return z
 
 
 class TransNetLayerSweeping(nn.Module):
@@ -125,7 +123,6 @@ class TransNetLayerSweeping(nn.Module):
         self.activation = nn.Tanh()
         self.A = torch.eye(2 * self.out_features).to(self.device)
         self.z_l = 0
-        self.temp_b_z = 0
 
     @staticmethod
     def grad_activation(z):
@@ -147,8 +144,6 @@ class TransNetLayerSweeping(nn.Module):
         :return:
         """
         self.z_l = torch.cat((input_x, self.activation(input_x)), 1)
-        self.temp_b_z = self.z_l
-        self.temp_b_z.requires_grad_()
         return self.z_l
 
     def setup_system_mat(self):
@@ -217,7 +212,8 @@ class TransNetLayerSweeping(nn.Module):
         # assemble Jacobian, i.e. dg/dy
         with torch.no_grad():
             b_prime = self.grad_activation(self.z_l[:, :self.out_features])[:, :,
-                      None] * self.dt / self.epsilon * torch.eye(self.out_features,device=self.device)[None, :, :]  # db/du
+                      None] * self.dt / self.epsilon * torch.eye(self.out_features, device=self.device)[None, :,
+                                                       :]  # db/du
             J = self.A.repeat(self.z_l.shape[0], 1, 1)
             J[:, self.out_features:, :self.out_features] -= b_prime
 
