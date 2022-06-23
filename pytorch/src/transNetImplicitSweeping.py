@@ -26,6 +26,7 @@ class TransNetSweeping(nn.Module):
 
     def forward(self, x):
         self.batch_size = x.size()[0]
+        self.set_batch_size()
 
         x = self.linearInput(x)
         z_in = torch.cat((x, self.block1.activation(x)), 1)
@@ -96,6 +97,12 @@ class TransNetSweeping(nn.Module):
         # z = self.block4.implicit_forward(z)
         return z
 
+    def set_batch_size(self):
+        self.block1.batch_size = self.batch_size
+        self.block2.batch_size = self.batch_size
+        # self.block3.batch_size = self.batch_size
+        # self.block4.batch_size = self.batch_size
+
 
 class TransNetLayerSweeping(nn.Module):
     __constants__ = ['in_features', 'out_features']
@@ -126,7 +133,8 @@ class TransNetLayerSweeping(nn.Module):
         self.activation = nn.Tanh()
         self.A = torch.eye(2 * self.out_features).to(self.device)
         self.z_l = 0
-
+        self.batch_size = 0
+        
     @staticmethod
     def grad_activation(z):
         return 1.0 / torch.cosh(z) ** 2
