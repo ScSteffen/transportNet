@@ -65,36 +65,40 @@ class TransNetSweepingExplRhs(nn.Module):
     def initialize_model(self, x):
         self.block1.initialize_model(x)
         self.block2.initialize_model(x)
-        self.block3.initialize_model(x)
+        # self.block3.initialize_model(x)
         # self.block4.initialize_model(x)
         return 0
 
     def setup_system_mats(self):
         self.block1.setup_system_mat()
         self.block2.setup_system_mat()
-        self.block3.setup_system_mat()
+        # self.block3.setup_system_mat()
         # self.block4.setup_system_mat()
         return 0
 
     def relax(self, z_in):
         z = self.block1.relax(z_in)
         z = self.block2.relax(z)
-        z = self.block3.relax(z)
+        # z = self.block3.relax(z)
         # z = self.block4.relax(z)
         return 0
 
     def sweep(self, z_in):
+        err1 = 0
+        err2 = 0
+        err3 = 0
+        err4 = 0
         z, err1 = self.block1.sweep(z_in)
         z, err2 = self.block2.sweep(z)
-        z, err3 = self.block3.sweep(z)
+        # z, err3 = self.block3.sweep(z)
         # z, err4 = self.block4.sweep(z)
-        total_err = 1. / 3. * (err1 + err2 + err3)  # + err4)
+        total_err = 1. / 4. * (err1 + err2 + err3 + err4)
         return total_err
 
     def implicit_forward(self, z_in):
         z = self.block1.implicit_forward(z_in)
         z = self.block2.implicit_forward(z)
-        z = self.block3.implicit_forward(z)
+        # z = self.block3.implicit_forward(z)
         # z = self.block4.implicit_forward(z)
         return z
 
