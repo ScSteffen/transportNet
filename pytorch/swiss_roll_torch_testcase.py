@@ -33,7 +33,7 @@ def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_
 
     # 1) Create network
     model = create_model(model_type=model_type, units=units, num_layers=num_layers, device=device, input_dim=2,
-                         output_dim=2, dt=dt, epsilon=epsilon, grad_check=True, batch_size=batch_size)
+                         output_dim=2, dt=dt, epsilon=epsilon, grad_check=False, batch_size=batch_size)
     # 2)  Create optimizer and loss
     optimizer = torch.optim.Adam(model.parameters())
     loss_fn = nn.CrossEntropyLoss()

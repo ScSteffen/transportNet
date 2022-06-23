@@ -184,10 +184,10 @@ class TransNetLayerSweeping(nn.Module):
             :return: Output y of implicit Layer Ay = x + f(x) + b
                     DONT USE WITH GRADIENT TAPE ACTIVE
         """
-        A = self.A.repeat(self.z_l.shape[0], 1, 1).to(self.device).double()
+        A = self.A.repeat(self.z_l.shape[0], 1, 1).to(self.device)
         rhs = self.rhs + z_lp1_i
 
-        rhs = rhs.double()[:, :, None]
+        rhs = rhs[:, :, None]
 
         y = torch.solve(rhs, A)[0][:, :, 0]
         error = torch.mean(torch.linalg.norm(self.z_l - y, dim=1))
@@ -215,49 +215,12 @@ class TransNetLayerSweeping(nn.Module):
         #   We need gradient dy/dx, using dg/dy*dy/dx =dg/dy
 
         # assemble Jacobian, i.e. dg/dy
-        # self.temp_b_z = - self.dt / self.epsilon * (self.z_l[:, self.out_features:] - self.activation(
-        #    self.z_l[:, :self.out_features]))
-
-        # grad = torch.gradient(self.temp_b_z)
-
-        # get partial derivative of g w.r.t z_out
-        """
         with torch.no_grad():
-            u_in = z_in[:, :self.out_features]
-            v_in = z_in[:, self.out_features:]
-
-            # a) u part
-            z = nn.Parameter(data=self.z_l, requires_grad=True)
-            w = self.weight
-            b = self.bias
-
-        g1 = -z[:, :self.out_features] - self.dt * torch.matmul(z[:, self.out_features:],
-                                                                w.T) + u_in + self.dt * b
-        # b) v part
-        g2 = -z[:, self.out_features:] + self.dt * torch.matmul(z[:, :self.out_features],
-                                                                w) + v_in - self.dt / self.epsilon * (
-                     z[:, self.out_features:] - self.activation(z[:, :self.out_features]))
-
-        # Assemble layer solution vector
-        g = torch.cat((g1, g2), 1)
-        g.backward(torch.ones_like(z))
-        J = z.grad
-        """
-        with torch.no_grad():
-            j_b = torch.zeros(self.z_l.size()[0], 2 * self.out_features, 2 * self.out_features).to(self.device)
-
-            # t2 = self.grad_activation(self.z_l[0, :self.out_features])
             b_prime = self.grad_activation(self.z_l[:, :self.out_features])[:, :,
                       None] * self.dt / self.epsilon * torch.eye(self.out_features)[None, :, :]  # db/du
-
-            # print(self.z_l[:, :self.out_features])
-            # print(t3)
-            # t = j_b[0, :, :]
-
             J = self.A.repeat(self.z_l.shape[0], 1, 1)
             J[:, self.out_features:, :self.out_features] -= b_prime
-            J = J.double()
-            # t = J[0]
+
         # register backward hook
         if z_out.requires_grad:
             z_out.register_hook(
