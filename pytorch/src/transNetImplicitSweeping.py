@@ -217,7 +217,7 @@ class TransNetLayerSweeping(nn.Module):
         # assemble Jacobian, i.e. dg/dy
         with torch.no_grad():
             b_prime = self.grad_activation(self.z_l[:, :self.out_features])[:, :,
-                      None] * self.dt / self.epsilon * torch.eye(self.out_features)[None, :, :]  # db/du
+                      None] * self.dt / self.epsilon * torch.eye(self.out_features,device=self.device)[None, :, :]  # db/du
             J = self.A.repeat(self.z_l.shape[0], 1, 1)
             J[:, self.out_features:, :self.out_features] -= b_prime
 
