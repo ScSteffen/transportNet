@@ -63,48 +63,46 @@ class TransNetSweepingExplRhs(nn.Module):
         return logits
 
     def initialize_model(self, x):
-        # x = self.linearInput(x)
-
         self.block1.initialize_model(x)
         self.block2.initialize_model(x)
-        # self.block3.initialize_model(x)
-        # self.block4.initialize_model(x)
+        self.block3.initialize_model(x)
+        self.block4.initialize_model(x)
         return 0
 
     def setup_system_mats(self):
         self.block1.setup_system_mat()
         self.block2.setup_system_mat()
-        # self.block3.setup_system_mat()
-        # self.block4.setup_system_mat()
+        self.block3.setup_system_mat()
+        self.block4.setup_system_mat()
         return 0
 
     def relax(self, z_in):
-        self.block1.relax(z_in)
-        self.block2.relax(z_in)
-        # self.block3.relax()
-        # self.block4.relax()
+        z = self.block1.relax(z_in)
+        z = self.block2.relax(z)
+        z = self.block3.relax(z)
+        z = self.block4.relax(z)
         return 0
 
     def sweep(self, z_in):
         z, err1 = self.block1.sweep(z_in)
         z, err2 = self.block2.sweep(z)
-        # z, err3 = self.block3.sweep(z)
-        # z, err4 = self.block4.sweep(z)
-        total_err = 1. / 2. * (err1 + err2)  # + err3 + err4)
+        z, err3 = self.block3.sweep(z)
+        z, err4 = self.block4.sweep(z)
+        total_err = 1. / 2. * (err1 + err2 + err3 + err4)
         return total_err
 
     def implicit_forward(self, z_in):
         z = self.block1.implicit_forward(z_in)
         z = self.block2.implicit_forward(z)
-        # z = self.block3.implicit_forward(z)
-        # z = self.block4.implicit_forward(z)
+        z = self.block3.implicit_forward(z)
+        z = self.block4.implicit_forward(z)
         return z
 
     def set_batch_size(self):
         self.block1.batch_size = self.batch_size
         self.block2.batch_size = self.batch_size
-        # self.block3.batch_size = self.batch_size
-        # self.block4.batch_size = self.batch_size
+        self.block3.batch_size = self.batch_size
+        self.block4.batch_size = self.batch_size
 
 
 class TransNetLayerSweepingExplRhs(nn.Module):
@@ -157,7 +155,6 @@ class TransNetLayerSweepingExplRhs(nn.Module):
         :param input_x: input data
         :return:
         """
-
         if self.z_l.size()[0] != input_x.size()[0]:
             self.z_l = torch.cat((input_x, self.activation(input_x)), 1)
         return self.z_l
@@ -187,7 +184,7 @@ class TransNetLayerSweepingExplRhs(nn.Module):
         self.rhs = torch.cat(
             (zeros + self.dt * self.bias, self.dt / self.epsilon * self.activation(z_lp1_i[:, :self.out_features])), 1)
 
-        return 0
+        return self.z_l
 
     def sweep(self, z_lp1_i):
         """
@@ -227,9 +224,9 @@ class TransNetLayerSweepingExplRhs(nn.Module):
 
         # assemble Jacobian, i.e. dg/dy
         with torch.no_grad():
-            b_prime = self.grad_activation(self.z_l[:, :self.out_features])[:, :,
-                      None] * self.dt / self.epsilon * torch.eye(self.out_features, device=self.device)[None, :,
-                                                       :]  # db/du
+            # b_prime = self.grad_activation(self.z_l[:, :self.out_features])[:, :,
+            #          None] * self.dt / self.epsilon * torch.eye(self.out_features, device=self.device)[None, :,
+            #                                           :]  # db/du
             J = self.A.repeat(self.z_l.shape[0], 1, 1)
             # J[:, self.out_features:, :self.out_features] -= b_prime
 
