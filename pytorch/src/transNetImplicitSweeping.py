@@ -125,6 +125,11 @@ class TransNetLayerSweeping(nn.Module):
         self.activation = nn.Tanh()
         self.A = torch.eye(2 * self.out_features).to(self.device)
         self.z_l = 0
+        self.temp_b_z = 0
+
+    @staticmethod
+    def grad_activation(z):
+        return 1.0 / torch.cosh(z) ** 2
 
     def reset_parameters(self) -> None:
         # Setting a=sqrt(5) in kaiming_uniform is the same as initializing with
@@ -142,7 +147,8 @@ class TransNetLayerSweeping(nn.Module):
         :return:
         """
         self.z_l = torch.cat((input_x, self.activation(input_x)), 1)
-
+        self.temp_b_z = self.z_l
+        self.temp_b_z.requires_grad_()
         return self.z_l
 
     def setup_system_mat(self):
@@ -178,12 +184,12 @@ class TransNetLayerSweeping(nn.Module):
             :return: Output y of implicit Layer Ay = x + f(x) + b
                     DONT USE WITH GRADIENT TAPE ACTIVE
         """
-        self.big_A = self.A.repeat(self.z_l.shape[0], 1, 1).to(self.device)
+        A = self.A.repeat(self.z_l.shape[0], 1, 1).to(self.device).double()
         rhs = self.rhs + z_lp1_i
 
-        rhs = rhs[:, :, None]
+        rhs = rhs.double()[:, :, None]
 
-        y = torch.solve(rhs, self.big_A)[0][:, :, 0]
+        y = torch.solve(rhs, A)[0][:, :, 0]
         error = torch.mean(torch.linalg.norm(self.z_l - y, dim=1))
         self.z_l = y
         return self.z_l, error
@@ -194,10 +200,11 @@ class TransNetLayerSweeping(nn.Module):
         v_in = z_in[:, self.out_features:]
 
         # a) u part
-        u_out = -self.dt * torch.matmul(self.z_l[:, self.out_features:], self.weight.T) + u_in + self.dt * self.bias
+        u_out = - self.dt * torch.matmul(self.z_l[:, self.out_features:],
+                                         self.weight.T) + u_in + self.dt * self.bias
         # b) v part
-        v_out = self.dt * torch.matmul(self.z_l[:, :self.out_features], self.weight) + v_in - \
-                self.dt / self.epsilon * (
+        v_out = self.dt * torch.matmul(self.z_l[:, :self.out_features],
+                                       self.weight) + v_in - self.dt / self.epsilon * (
                         self.z_l[:, self.out_features:] - self.activation(self.z_l[:, :self.out_features]))
 
         # Assemble layer solution vector
@@ -205,7 +212,54 @@ class TransNetLayerSweeping(nn.Module):
 
         # 4) Use implicit function theorem (or adjoint equation of the KKT system to compute the real gradient)
         #   Let g = Ay - (x + f(x) + b) (layer in fixed point notation). Then grad = dg/dx.
-        #   We need gradient dy/dx, using dg/dy*dy/dx =dg/dy with A=dg/dy
+        #   We need gradient dy/dx, using dg/dy*dy/dx =dg/dy
+
+        # assemble Jacobian, i.e. dg/dy
+        # self.temp_b_z = - self.dt / self.epsilon * (self.z_l[:, self.out_features:] - self.activation(
+        #    self.z_l[:, :self.out_features]))
+
+        # grad = torch.gradient(self.temp_b_z)
+
+        # get partial derivative of g w.r.t z_out
+        """
+        with torch.no_grad():
+            u_in = z_in[:, :self.out_features]
+            v_in = z_in[:, self.out_features:]
+
+            # a) u part
+            z = nn.Parameter(data=self.z_l, requires_grad=True)
+            w = self.weight
+            b = self.bias
+
+        g1 = -z[:, :self.out_features] - self.dt * torch.matmul(z[:, self.out_features:],
+                                                                w.T) + u_in + self.dt * b
+        # b) v part
+        g2 = -z[:, self.out_features:] + self.dt * torch.matmul(z[:, :self.out_features],
+                                                                w) + v_in - self.dt / self.epsilon * (
+                     z[:, self.out_features:] - self.activation(z[:, :self.out_features]))
+
+        # Assemble layer solution vector
+        g = torch.cat((g1, g2), 1)
+        g.backward(torch.ones_like(z))
+        J = z.grad
+        """
+        with torch.no_grad():
+            j_b = torch.zeros(self.z_l.size()[0], 2 * self.out_features, 2 * self.out_features).to(self.device)
+
+            # t2 = self.grad_activation(self.z_l[0, :self.out_features])
+            b_prime = self.grad_activation(self.z_l[:, :self.out_features])[:, :,
+                      None] * self.dt / self.epsilon * torch.eye(self.out_features)[None, :, :]  # db/du
+
+            # print(self.z_l[:, :self.out_features])
+            # print(t3)
+            # t = j_b[0, :, :]
+
+            J = self.A.repeat(self.z_l.shape[0], 1, 1)
+            J[:, self.out_features:, :self.out_features] -= b_prime
+            J = J.double()
+            # t = J[0]
+        # register backward hook
         if z_out.requires_grad:
-            z_out.register_hook(lambda grad: torch.solve(grad[:, :, None], self.big_A.transpose(1, 2))[0][:, :, 0])
+            z_out.register_hook(
+                lambda grad: torch.solve(grad[:, :, None], J.transpose(1, 2))[0][:, :, 0])
         return z_out
