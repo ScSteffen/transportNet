@@ -33,6 +33,9 @@ class TransNetSweeping(nn.Module):
 
         # Source_Iteration
         with torch.no_grad():
+            # 1) initialize state variables
+            self.initialize_model(x)
+
             # 2) Setup system matrix
             self.setup_system_mats()
 
@@ -134,7 +137,7 @@ class TransNetLayerSweeping(nn.Module):
         self.A = torch.eye(2 * self.out_features).to(self.device)
         self.z_l = 0
         self.batch_size = 0
-        
+
     @staticmethod
     def grad_activation(z):
         return 1.0 / torch.cosh(z) ** 2
@@ -154,7 +157,8 @@ class TransNetLayerSweeping(nn.Module):
         :param input_x: input data
         :return:
         """
-        self.z_l = torch.cat((input_x, self.activation(input_x)), 1)
+        if self.z_l.shape() != input_x.shape():
+            self.z_l = torch.cat((input_x, self.activation(input_x)), 1)
         return self.z_l
 
     def setup_system_mat(self):
