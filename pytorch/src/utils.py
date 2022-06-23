@@ -74,21 +74,26 @@ def create_model(model_type: int = 0, units: int = 10, num_layers: int = 4, devi
         #    print("Gradient of implicit layer corresponds to gradient of finite difference approximation")
 
     if model_type == 5:
-        model = TransNetSweepingExplRhs(units=units, input_dim=input_dim, output_dim=output_dim, num_layers=num_layers,
-                                        epsilon=epsilon,                                        dt=dt, device=device,steps=steps).to(device)  # .double()
-        print("TransNet with sweeping chosen")
+        model = TransNetSweeping(units=units, input_dim=input_dim, output_dim=output_dim, num_layers=num_layers,
+                                 epsilon=epsilon, dt=dt, device=device, steps=steps).to(device)  # .double()
+        print("TransNet with sweeping and implicit right hand side chosen")
 
     if model_type == 6:
+        model = TransNetSweepingExplRhs(units=units, input_dim=input_dim, output_dim=output_dim, num_layers=num_layers,
+                                        epsilon=epsilon, dt=dt, device=device, steps=steps).to(device)  # .double()
+        print("TransNet with sweeping and explicit right hand side chosen")
+
+    if model_type == 7:
         model = TransNetExplicit(units=units, input_dim=input_dim, output_dim=output_dim, num_layers=num_layers,
                                  epsilon=epsilon,
                                  dt=dt, device=device).to(device)
         print("Explicit TransNet chosen")
 
-    if model_type == 7:
+    if model_type == 8:
         model = TransNetExplicit2(units=units, input_dim=input_dim, output_dim=output_dim, num_layers=num_layers,
                                   epsilon=epsilon,
                                   dt=dt, device=device).to(device)
-        print("Explicit TransNet chosen")
+        print("Explicit TransNet chosen with v2 splitting")
     # print(model)
     # 0) Sanitycheck
     if grad_check:
