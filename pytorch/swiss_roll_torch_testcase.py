@@ -8,6 +8,7 @@ from src.utils import create_model, fit, test, create_csv_logger_cb
 
 import numpy as np
 import matplotlib.pyplot as plt
+from os import path, makedirs
 
 
 def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_type, plotting=False, gpu=True,
@@ -37,7 +38,7 @@ def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_
                          output_dim=2, dt=dt, epsilon=epsilon, grad_check=False, batch_size=batch_size, steps=steps)
 
     # 2)  Create optimizer and loss
-    optimizer = torch.optim.Adam(model.parameters(), weight_decay=0.01)
+    optimizer = torch.optim.Adam(model.parameters(), weight_decay=0.01, lr=0.01)
     loss_fn = nn.CrossEntropyLoss()
 
     # 3) Create Dataset
@@ -118,7 +119,10 @@ def print_current_evaluation(train_x, whole_space_torch, n_grid, model, iter, mo
     plt.ylim((-1, 1))
 
     # plt.show()
-    plt.savefig("results/swiss_roll_model_" + str(model_nr) + "/img_" + str(iter) + ".png", dpi=500)
+    if not path.exists("results/swiss_roll_model_" + str(model_nr) + '/imgs/'):
+        makedirs("results/swiss_roll_model_" + str(model_nr) + '/imgs/')
+
+    plt.savefig("results/swiss_roll_model_" + str(model_nr) + "/imgs/img_" + str(iter) + ".png", dpi=500)
     plt.clf()
     return 0
 
