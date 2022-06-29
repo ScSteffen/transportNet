@@ -5,26 +5,25 @@ import math
 from src.layers import LinearLayer
 
 
-class TransNet(nn.Module):
+class TransNetImplicit(nn.Module):
     def __init__(self, units, input_dim, output_dim, num_layers, epsilon, dt, device):
-        super(TransNet, self).__init__()
+        super(TransNetImplicit, self).__init__()
         self.num_layers = num_layers
         self.units = units
         self.linearInput = LinearLayer(input_dim, units)
-        self.block1 = TransNetLayer(units, units, epsilon=epsilon, dt=dt, device=device)
-        self.block2 = TransNetLayer(units, units, epsilon=epsilon, dt=dt, device=device)
-        self.block3 = TransNetLayer(units, units, epsilon=epsilon, dt=dt, device=device)
-        self.block4 = TransNetLayer(units, units, epsilon=epsilon, dt=dt, device=device)
+
+        self.blocks = torch.nn.ModuleList(
+            [TransNetLayer(units, units, epsilon=epsilon, dt=dt, device=device) for _ in range(num_layers)])
 
         self.linearOutput = LinearLayer(units, output_dim)
+        self.activation = nn.Tanh()
 
     def forward(self, x):
         z = self.linearInput(x)
-        z = torch.cat((z, self.block1.activation(z)), 1)
-        z = self.block1(z)
-        z = self.block2(z)
-        z = self.block3(z)
-        z = self.block4(z)
+        z = torch.cat((z, self.activation(z)), 1)
+        for block in self.blocks:
+            z = block(z)
+
         z = z[:, :self.units]
         z = self.linearOutput(z)
         logits = nn.Softmax(dim=1)(z)
@@ -38,7 +37,7 @@ class TransNet(nn.Module):
         #    print(t[i, :])
         # print(self.block1.weight.grad)
         # print(self.block2.weight.grad)
-        print(self.block3.weight.grad)
+        print(self.blocks[0].weight.grad)
         # print(self.block4.weight.grad)
         # print(self.linearOutput.weight.grad)
 
@@ -47,7 +46,7 @@ class TransNet(nn.Module):
 
         # print(self.block1.weight)
         # print(self.block2.weight)
-        print(self.block3.weight)
+        print(self.blocks[0].weight)
         # print(self.block4.weight)
         # print(self.linearOutput.weight)
 

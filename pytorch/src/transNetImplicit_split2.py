@@ -11,20 +11,18 @@ class TransNetSplit2(nn.Module):
         self.num_layers = num_layers
         self.units = units
         self.linearInput = LinearLayer(input_dim, units)
-        self.block1 = TransNetLayerSplit2(units, units, epsilon=epsilon, dt=dt, device=device)
-        self.block2 = TransNetLayerSplit2(units, units, epsilon=epsilon, dt=dt, device=device)
-        self.block3 = TransNetLayerSplit2(units, units, epsilon=epsilon, dt=dt, device=device)
-        self.block4 = TransNetLayerSplit2(units, units, epsilon=epsilon, dt=dt, device=device)
+        self.blocks = torch.nn.ModuleList(
+            [TransNetLayerSplit2(units, units, epsilon=epsilon, dt=dt, device=device) for _ in range(num_layers)])
 
         self.linearOutput = LinearLayer(units, output_dim)
+        self.activation = nn.Tanh()
 
     def forward(self, x):
         z = self.linearInput(x)
-        z = torch.cat((z, self.block1.activation(z)), 1)
-        z = self.block1(z)
-        z = self.block2(z)
-        z = self.block3(z)
-        z = self.block4(z)
+        z = torch.cat((z, self.activation(z)), 1)
+        for block in self.blocks:
+            z = block(z)
+
         z = z[:, :self.units]
         z = self.linearOutput(z)
         logits = nn.Softmax(dim=1)(z)

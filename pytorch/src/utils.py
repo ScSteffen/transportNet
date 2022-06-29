@@ -1,7 +1,7 @@
 from src.simple_implicit import ImplicitNet, ImplicitLayer
 from src.resnet import ResNet
 from src.newton_implicit import NewtonImplicitNet
-from src.transNetImplicit import TransNet, TransNetLayer
+from src.transNetImplicit import TransNetImplicit, TransNetLayer
 from src.transNetExplicit import TransNetExplicit
 from src.transNetExplicit2 import TransNetExplicit2
 from src.transNetImplicit_split2 import TransNetSplit2, TransNetLayerSplit2
@@ -52,9 +52,9 @@ def create_model(model_type: int = 0, units: int = 10, num_layers: int = 4, devi
         print("Nonlinear implicit ResNet chosen")
 
     if model_type == 3:
-        model = TransNet(units=units, input_dim=input_dim, output_dim=output_dim, num_layers=num_layers,
-                         epsilon=epsilon, dt=dt,
-                         device=device).to(device)  # .double()
+        model = TransNetImplicit(units=units, input_dim=input_dim, output_dim=output_dim, num_layers=num_layers,
+                                 epsilon=epsilon, dt=dt,
+                                 device=device).to(device)  # .double()
         print("TransNet chosen")
         # layer = TransNetLayer(in_features=units, out_features=units).double()
         # gcheck = gradcheck(layer, torch.randn(batch_size, 2 * units, requires_grad=True, dtype=torch.double),
@@ -106,7 +106,7 @@ def create_model(model_type: int = 0, units: int = 10, num_layers: int = 4, devi
     return model
 
 
-def fit(dataloader, model, loss_fn, optimizer, device, sweeping_model=False):
+def fit(dataloader, model, loss_fn, optimizer, device):
     size = len(dataloader.dataset)
     model.train()
     # if sweeping_model:
@@ -142,7 +142,7 @@ def fit(dataloader, model, loss_fn, optimizer, device, sweeping_model=False):
     return timing
 
 
-def test(dataloader, model, loss_fn, device, iter, log_file, timing, sweeping_model=False):
+def test(dataloader, model, loss_fn, device, iter, log_file, timing):
     size = len(dataloader.dataset)
     num_batches = len(dataloader)
     model.eval()

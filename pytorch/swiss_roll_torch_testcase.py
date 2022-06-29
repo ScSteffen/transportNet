@@ -10,7 +10,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_type, plotting=False, gpu=True,steps =20):
+def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_type, plotting=False, gpu=True,
+          steps=20):
     """
     :param num_layers: numbre of layers
     :param units: neurons per layer
@@ -32,15 +33,11 @@ def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_
     print(model_type)
 
     # 1) Create network
-    model = create_model(model_type=model_type, units=units, num_layers=num_layers, device=device, input_dim=2,
-                         output_dim=2, dt=dt, epsilon=epsilon, grad_check=False, batch_size=batch_size, steps = steps)
-
-    sweeping_model = False
-    if model_type == 5:
-        sweeping_model = True
+    model = create_model(model_type=model_type, units=units, num_layers=num_layers, device=device, input_dim=3,
+                         output_dim=2, dt=dt, epsilon=epsilon, grad_check=False, batch_size=batch_size, steps=steps)
 
     # 2)  Create optimizer and loss
-    optimizer = torch.optim.Adam(model.parameters())
+    optimizer = torch.optim.Adam(model.parameters(), weight_decay=0.01)
     loss_fn = nn.CrossEntropyLoss()
 
     # 3) Create Dataset
@@ -60,17 +57,19 @@ def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_
     test_dataloader = DataLoader(my_dataset, batch_size=batch_size)
 
     n_grid = 100
-    whole_space = np.zeros(shape=(n_grid, n_grid, 2))
+    whole_space = np.zeros(shape=(n_grid, n_grid, 3))
     dx = 0.05
     c_i = 0
     c_j = 0
     for i in np.linspace(-1, 1, n_grid):
         for j in np.linspace(-1, 1, n_grid):
-            whole_space[c_i, c_j, :] = np.asarray([i, j])
+            whole_space[c_i, c_j, :2] = np.asarray([i, j])
+            whole_space[c_i, c_j, 2] = 0.0
+
             c_j += 1
         c_i += 1
         c_j = 0
-    whole_space_torch = torch.Tensor(np.reshape(whole_space, newshape=(n_grid ** 2, 2))).to(device)
+    whole_space_torch = torch.Tensor(np.reshape(whole_space, newshape=(n_grid ** 2, 3))).to(device)
 
     (x_train_plot, y_train_plot), _ = create_dataset(num_samples=200, test_rate=0.0, plotting=False,
                                                      shuffle=False)
@@ -85,8 +84,8 @@ def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_
     # train the network
     for t in range(epochs):
         print(f"Epoch {t + 1}\n-------------------------------")
-        timing = fit(train_dataloader, model, loss_fn, optimizer, device, sweeping_model=sweeping_model)
-        test(test_dataloader, model, loss_fn, device, t + 1, file_name, timing, sweeping_model=sweeping_model)
+        timing = fit(train_dataloader, model, loss_fn, optimizer, device)
+        test(test_dataloader, model, loss_fn, device, t + 1, file_name, timing)
         if plotting:
             print_current_evaluation(x_train_plot, whole_space_torch, n_grid, model, t + 1, model_nr=model_type)
     print("Done!")
@@ -160,4 +159,4 @@ if __name__ == '__main__':
         train(num_layers=options.num_layers, units=options.units, epsilon=options.epsilon,
               batch_size=options.batch_size, load_model=options.load_model, epochs=options.epochs,
               model_type=options.model_type, dt=options.dt, plotting=options.plotting, gpu=options.gpu,
-              steps= options.iterator_steps)
+              steps=options.iterator_steps)

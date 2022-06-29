@@ -17,11 +17,13 @@ def create_dataset(num_samples: int = 1000, test_rate=0.1, plotting=False, shuff
         :param r_theta: r_theta[:,0] = r_s,r_theta[:,1] = thetas_s,
         :return:
         """
-        z = np.zeros(shape=(num_samples, 2))
+        z = np.zeros(shape=(num_samples, 3))
         label = np.zeros(shape=(num_samples, 1))
 
         z[:, 0] = x * np.cos(4 * np.pi * x)
         z[:, 1] = x * np.sin(4 * np.pi * x)
+        z[:, 2] = x * 0.0
+
         return z, label
 
     def f2(x):
@@ -29,10 +31,11 @@ def create_dataset(num_samples: int = 1000, test_rate=0.1, plotting=False, shuff
         :param r_theta: r_theta[:,0] = r_s,r_theta[:,1] = thetas_s,
         :return:
         """
-        z = np.zeros(shape=(num_samples, 2))
+        z = np.zeros(shape=(num_samples, 3))
         label = np.ones(shape=(num_samples, 1))
         z[:, 0] = (x + 0.2) * np.cos(4 * np.pi * x)
         z[:, 1] = (x + 0.2) * np.sin(4 * np.pi * x)
+        z[:, 2] = x * 0.0
         return z, label
 
     x = np.linspace(0, 1, num_samples)

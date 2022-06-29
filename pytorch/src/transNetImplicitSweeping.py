@@ -16,12 +16,11 @@ class TransNetSweeping(nn.Module):
         self.steps = steps
         self.device = device
         self.linearInput = LinearLayer(input_dim, units)
-        self.block1 = TransNetLayerSweeping(units, units, epsilon=epsilon, dt=dt, device=device)
-        self.block2 = TransNetLayerSweeping(units, units, epsilon=epsilon, dt=dt, device=device)
-        self.block3 = TransNetLayerSweeping(units, units, epsilon=epsilon, dt=dt, device=device)
-        self.block4 = TransNetLayerSweeping(units, units, epsilon=epsilon, dt=dt, device=device)
+        self.blocks = torch.nn.ModuleList(
+            [TransNetLayerSweeping(units, units, epsilon=epsilon, dt=dt, device=device) for _ in range(num_layers)])
 
         self.linearOutput = LinearLayer(units, output_dim)
+        self.activation = nn.Tanh()
         self.batch_size = 0
 
     def forward(self, x):
