@@ -29,7 +29,7 @@ class TransNetSweepingExplRhs(nn.Module):
         self.set_batch_size()
 
         x = self.linearInput(x)
-        z_in = torch.cat((x, self.block1.activation(x)), 1)
+        z_in = torch.cat((x, self.activation(x)), 1)
 
         # Source_Iteration
         with torch.no_grad():
