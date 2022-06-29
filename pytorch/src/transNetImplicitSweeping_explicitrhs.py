@@ -72,9 +72,10 @@ class TransNetSweepingExplRhs(nn.Module):
             block.setup_system_mat()
         return 0
 
-    def relax(self):
+    def relax(self, z_in):
+        z = z_in
         for block in self.blocks:
-            block.relax()
+            z = block.relax(z)
         return 0
 
     def sweep(self, z_in):
