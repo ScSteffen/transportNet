@@ -46,9 +46,9 @@ class ResNetLayer(nn.Module):
 
         self.in_features = in_features
         self.out_features = out_features
-        self.weight = nn.Parameter(torch.empty((in_features, out_features), device=device))
+        self.weight = nn.Parameter(torch.empty((in_features, out_features)))
         if bias:
-            self.bias = nn.Parameter(torch.empty(out_features), device=device)
+            self.bias = nn.Parameter(torch.empty(out_features))
         else:
             self.register_parameter('bias', None)
         self.reset_parameters()
