@@ -34,7 +34,7 @@ def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_
     print(model_type)
 
     # 1) Create network
-    model = create_model(model_type=model_type, units=units, num_layers=num_layers, device=device, input_dim=2,
+    model = create_model(model_type=model_type, units=units, num_layers=num_layers, device=device, input_dim=3,
                          output_dim=2, dt=dt, epsilon=epsilon, grad_check=False, batch_size=batch_size, steps=steps)
 
     # 2)  Create optimizer and loss
@@ -58,19 +58,19 @@ def train(num_layers, units, epsilon, dt, batch_size, load_model, epochs, model_
     test_dataloader = DataLoader(my_dataset, batch_size=batch_size)
 
     n_grid = 100
-    whole_space = np.zeros(shape=(n_grid, n_grid, 2))
+    whole_space = np.zeros(shape=(n_grid, n_grid, 3))
     dx = 0.05
     c_i = 0
     c_j = 0
     for i in np.linspace(-1, 1, n_grid):
         for j in np.linspace(-1, 1, n_grid):
             whole_space[c_i, c_j, :2] = np.asarray([i, j])
-            # whole_space[c_i, c_j, 2] = 0.0
+            whole_space[c_i, c_j, 2] = 0.0
 
             c_j += 1
         c_i += 1
         c_j = 0
-    whole_space_torch = torch.Tensor(np.reshape(whole_space, newshape=(n_grid ** 2, 2))).to(device)
+    whole_space_torch = torch.Tensor(np.reshape(whole_space, newshape=(n_grid ** 2, 3))).to(device)
 
     (x_train_plot, y_train_plot), _ = create_dataset(num_samples=200, test_rate=0.0, plotting=False,
                                                      shuffle=False)
