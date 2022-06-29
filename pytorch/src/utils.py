@@ -42,7 +42,8 @@ def create_model(model_type: int = 0, units: int = 10, num_layers: int = 4, devi
         #    print("Gradient of implicit layer corresponds to gradient of finite difference approximation")
 
     if model_type == 1:
-        model = ResNet(units=units, input_dim=input_dim, output_dim=output_dim, num_layers=num_layers).to(device)
+        model = ResNet(units=units, input_dim=input_dim, output_dim=output_dim, num_layers=num_layers,
+                       device=device).to(device)
         print("explicit ResNet chosen")
 
     if model_type == 2:
