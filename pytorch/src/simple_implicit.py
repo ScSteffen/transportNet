@@ -6,23 +6,28 @@ from src.layers import LinearLayer
 
 
 class ImplicitNet(nn.Module):
-    def __init__(self, units, input_dim, output_dim, num_layers):
+    def __init__(self, units, input_dim, output_dim, num_layers,device,dt):
         super(ImplicitNet, self).__init__()
         self.num_layers = num_layers
         self.linearInput = LinearLayer(input_dim, units)
-        self.block1 = ImplicitLayer(units, units)
-        self.block2 = ImplicitLayer(units, units)
-        self.block3 = ImplicitLayer(units, units)
-        self.block4 = ImplicitLayer(units, units)
+
+        self.blocks = torch.nn.ModuleList(
+            [ImplicitLayer(units, units,device=device,dt=dt,tol=1e-4,max_iter=50) for _ in
+             range(num_layers)])
+
+
+        self.blocks = torch.nn.ModuleList(
+            [ImplicitLayer(units, units,device=device) for _ in
+             range(num_layers)])
 
         self.linearOutput = LinearLayer(units, output_dim)
 
     def forward(self, x):
         z = self.linearInput(x)
-        # z = self.block1(z)
-        z = self.block2(z)
-        z = self.block3(z)
-        # z = self.block4(z)
+      
+        for block in self.blocks:
+            z = block(z)
+
         z = self.linearOutput(z)
         logits = nn.Softmax(dim=1)(z)
         return logits
@@ -55,11 +60,16 @@ class ImplicitLayer(nn.Module):
     out_features: int
     weight: Tensor
 
-    def __init__(self, in_features: int, out_features: int, bias: bool = True, device=None, dtype=None) -> None:
+    def __init__(self, in_features: int, out_features: int,dt=1.0,tol = 1e-4,max_iter=40, bias: bool = True, device=None, dtype=None) -> None:
         super().__init__()
 
         self.in_features = in_features
         self.out_features = out_features
+        self.dt =dt
+        self.tol = tol
+        self.max_iter = max_iter
+        self.device = device
+
         self.weight = nn.Parameter(torch.empty((out_features, in_features), dtype=torch.float))  # W^T
         if bias:
             self.bias = nn.Parameter(torch.empty(out_features, dtype=torch.float))
@@ -81,25 +91,34 @@ class ImplicitLayer(nn.Module):
     def forward(self, x):
         """
         :param x: Layer input
-        :return: Output y of implicit Layer Ay = x + f(x) + b
+        :return: Output y of implicit Layer y = x + h*(Af(y)+b)
         """
 
+         # Run Newton's method outside of the autograd framework
         with torch.no_grad():
-            # 1)  assemble right hand side
-            rhs = x + self.activation(x + self.bias)
-            rhs = rhs[:, :, None]  # assemble broadcasted rhs of system
-            # 2) Solve system (detached from gradient tape)
-            A = torch.transpose(self.weight, 0, 1).repeat(x.shape[0], 1, 1)  # assemble broadcastet matrix of system
-            # y = torch.linalg.solve(A, rhs)[:, :, 0]
-            y = torch.solve(rhs, A)[0][:, :, 0]
+            z = torch.tanh(x)
+            self.iterations = 0
+            while self.iterations < self.max_iter:
+                
+                g = z - x-self.dt*(torch.matmul(self.weight.T,self.activation(z))+self.bias)
 
-        # 3)  reengage autograd and add the gradient hook
-        # t = torch.matmul(y, self.weight) - x - self.activation(x) - self.bias
-        y = y - (torch.matmul(y, self.weight) - x - self.activation(x) - self.bias)
+                self.err = torch.norm(g)
 
-        # 4) Use implicit function theorem (or adjoint equation of the KKT system to compute the real gradient)
-        #   Let g = Ay - (x + f(x) + b) (layer in fixed point notation). Then grad = dg/dx.
-        #   We need gradient dy/dx, using dg/dy*dy/dx =dg/dy with A=dg/dy
-        if y.requires_grad:
-            y.register_hook(lambda grad: torch.solve(grad[:, :, None], A.transpose(1, 2))[0][:, :, 0])
-        return y
+                # newton step
+                J = torch.eye(z.shape[1], device=self.device)[None, :, :] - self.dt*(1 / torch.cosh(z) ** 2)[:, :,
+                                                                            None] * self.linear.weight.T[None, :, :]
+                if self.err < self.tol:
+                    break
+
+                z = z - torch.solve(g[:, :, None], J)[0][:, :, 0]
+
+                self.iterations += 1
+
+        # reengage autograd and add the gradient hook
+        # t = z - torch.tanh(self.linear(z) + x)
+        z = torch.tanh(self.linear(z) + x)
+        
+        if z.requires_grad:
+            z.register_hook(lambda grad: torch.solve(grad[:, :, None], J.transpose(1, 2))[0][:, :, 0])
+
+        return z
