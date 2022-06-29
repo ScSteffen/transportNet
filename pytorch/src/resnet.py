@@ -5,25 +5,22 @@ from src.layers import LinearLayer
 
 
 class ResNet(nn.Module):
-    def __init__(self, units, input_dim, output_dim, num_layers):
+    def __init__(self, units, input_dim, output_dim, num_layers, device):
         super(ResNet, self).__init__()
 
         self.num_layers = num_layers
         self.linearInput = LinearLayer(input_dim, units)
 
-        self.resNetBlocks1 = ResNetLayer(units, units)
-        self.resNetBlocks2 = ResNetLayer(units, units)
-        self.resNetBlocks3 = ResNetLayer(units, units)
-        self.resNetBlocks4 = ResNetLayer(units, units)
+        self.blocks = torch.nn.ModuleList(
+            [ResNetLayer(units, units, device=device) for _ in range(num_layers)])
 
         self.linearOutput = LinearLayer(units, output_dim)
 
     def forward(self, x):
         z = self.linearInput(x)
-        z = self.resNetBlocks1(z)
-        z = self.resNetBlocks2(z)
-        z = self.resNetBlocks3(z)
-        z = self.resNetBlocks4(z)
+        for block in self.blocks:
+            z = block(z)
+
         z = self.linearOutput(z)
         logits = nn.Softmax(dim=1)(z)
         return logits
@@ -49,9 +46,9 @@ class ResNetLayer(nn.Module):
 
         self.in_features = in_features
         self.out_features = out_features
-        self.weight = nn.Parameter(torch.empty((in_features, out_features)))
+        self.weight = nn.Parameter(torch.empty((in_features, out_features), device=device))
         if bias:
-            self.bias = nn.Parameter(torch.empty(out_features))
+            self.bias = nn.Parameter(torch.empty(out_features), device=device)
         else:
             self.register_parameter('bias', None)
         self.reset_parameters()
