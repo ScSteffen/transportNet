@@ -98,7 +98,7 @@ def create_model(model_type: int = 0, units: int = 10, num_layers: int = 4, devi
     # 0) Sanitycheck
     if grad_check:
         model.double()
-        gcheck = gradcheck(model, torch.randn(batch_size, input_dim, requires_grad=True, dtype=torch.double),
+        gcheck = gradcheck(model, torch.randn(batch_size, input_dim, requires_grad=True, dtype=torch.float),
                            check_undefined_grad=False, atol=1e-7)
         if gcheck:
             print("Gradient of model corresponds to gradient of finite difference approximation")

@@ -90,13 +90,11 @@ class TransNetSweeping(nn.Module):
         z = z_in
         for block in self.blocks:
             z = block.implicit_forward(z_in)
-
         return z
 
     def set_batch_size(self):
         for block in self.blocks:
             block.batch_size = self.batch_size
-
         return 0
 
 

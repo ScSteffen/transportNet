@@ -16,12 +16,12 @@ class TransNetSweepingExplRhs(nn.Module):
         self.steps = steps
         self.device = device
         self.linearInput = LinearLayer(input_dim, units)
-        self.block1 = TransNetLayerSweepingExplRhs(units, units, epsilon=epsilon, dt=dt, device=device)
-        self.block2 = TransNetLayerSweepingExplRhs(units, units, epsilon=epsilon, dt=dt, device=device)
-        self.block3 = TransNetLayerSweepingExplRhs(units, units, epsilon=epsilon, dt=dt, device=device)
-        self.block4 = TransNetLayerSweepingExplRhs(units, units, epsilon=epsilon, dt=dt, device=device)
+        self.blocks = torch.nn.ModuleList(
+            [TransNetLayerSweepingExplRhs(units, units, epsilon=epsilon, dt=dt, device=device) for _ in
+             range(num_layers)])
 
         self.linearOutput = LinearLayer(units, output_dim)
+        self.activation = nn.Tanh()
         self.batch_size = 0
 
     def forward(self, x):
@@ -63,50 +63,40 @@ class TransNetSweepingExplRhs(nn.Module):
         return logits
 
     def initialize_model(self, x):
-        self.block1.initialize_model(x)
-        self.block2.initialize_model(x)
-        # self.block3.initialize_model(x)
-        # self.block4.initialize_model(x)
+        for block in self.blocks:
+            block.initialize_model(x)
         return 0
 
     def setup_system_mats(self):
-        self.block1.setup_system_mat()
-        self.block2.setup_system_mat()
-        # self.block3.setup_system_mat()
-        # self.block4.setup_system_mat()
+        for block in self.blocks:
+            block.setup_system_mat()
         return 0
 
-    def relax(self, z_in):
-        z = self.block1.relax(z_in)
-        z = self.block2.relax(z)
-        # z = self.block3.relax(z)
-        # z = self.block4.relax(z)
+    def relax(self):
+        for block in self.blocks:
+            block.relax()
         return 0
 
     def sweep(self, z_in):
-        err1 = 0
-        err2 = 0
-        err3 = 0
-        err4 = 0
-        z, err1 = self.block1.sweep(z_in)
-        z, err2 = self.block2.sweep(z)
-        # z, err3 = self.block3.sweep(z)
-        # z, err4 = self.block4.sweep(z)
-        total_err = 1. / 4. * (err1 + err2 + err3 + err4)
-        return total_err
+        err = [0.0] * self.num_layers
+        z = z_in
+        i = 0
+        for block in self.blocks:
+            z, err[i] = block.sweep(z)
+            i += 1
+
+        return sum(err) / len(err)
 
     def implicit_forward(self, z_in):
-        z = self.block1.implicit_forward(z_in)
-        z = self.block2.implicit_forward(z)
-        # z = self.block3.implicit_forward(z)
-        # z = self.block4.implicit_forward(z)
+        z = z_in
+        for block in self.blocks:
+            z = block.implicit_forward(z_in)
         return z
 
     def set_batch_size(self):
-        self.block1.batch_size = self.batch_size
-        self.block2.batch_size = self.batch_size
-        self.block3.batch_size = self.batch_size
-        self.block4.batch_size = self.batch_size
+        for block in self.blocks:
+            block.batch_size = self.batch_size
+        return 0
 
 
 class TransNetLayerSweepingExplRhs(nn.Module):
